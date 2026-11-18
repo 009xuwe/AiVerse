@@ -1,0 +1,282 @@
+name: Nightly Build
+
+# 每天（北京时间）自动构建最新 main 的 beta 测试包（三架构）并发布到测试版仓库 Release。
+# 目的：测试的人随时能拿到最新构建，且能尽早发现编译挂了。
+# 产物发到独立测试版仓库 yhdmgf/aiverse-beta 的 Releases（版本号自动递增），不再作为 Actions artifact。
+# beta = 继承 release 的正式签名 + R8，包名 com.aiverse.beta（与正式版同机共存、互不覆盖）；
+# 签名校验生效，但测试包不参与检查更新（见 SettingsViewModel.isTestPackage），不会把测试机导向正式包。
+on:
+  schedule:
+    # 北京时间 6:00 / 12:00 / 18:00（= UTC 前一天22:00 / 当天4:00 / 10:00）
+    - cron: '0 22 * * *'  # 北京 6:00
+    - cron: '0 4 * * *'   # 北京 12:00
+    - cron: '0 10 * * *'  # 北京 18:00
+    - cron: '0 16 * * *'  # 北京 0:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 早退检测：放在所有步骤之前，上次测试版构建的 commit 与本次 HEAD 相同则跳过整个 job
+      # （不只跳过 build，连 JDK / 迁移对账 / 插件对账 / 还原签名一并跳过），避免对同一提交重复跑。
+      # 判定来源：测试版仓库 yhdmgf/aiverse-beta 最新 release body 里的「commit xxx」，与 git rev-parse HEAD 比对。
+      - name: 早退检测（与上次构建同 commit 则跳过）
+        id: earlycheck
+        env:
+          GH_TOKEN: ${{ secrets.BETA_RELEASE_TOKEN }}
+          TARGET_REPO: yhdmgf/aiverse-beta
+        run: |
+          set -e
+          SHA=$(git rev-parse HEAD)
+          PREV=$(gh api "repos/$TARGET_REPO/tags" --paginate --jq '.[].name' 2>/dev/null \
+                  | sed 's/^v//' | sort -V | tail -n1 || true)
+          PREV_SHA=""
+          if [ -n "$PREV" ]; then
+            PREV_BODY=$(gh release view "$PREV" --repo "$TARGET_REPO" --json body -q .body 2>/dev/null || true)
+            if [ -n "$PREV_BODY" ]; then
+              PREV_SHA=$(echo "$PREV_BODY" | grep -oE 'commit [0-9a-f]{7,40}' | head -n1 | awk '{print $2}')
+            fi
+          fi
+          if [ -n "$PREV_SHA" ] && [ "$PREV_SHA" = "$SHA" ]; then
+            echo "上次构建 commit $SHA 与本次 HEAD 相同，跳过整个构建"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "需要构建（上次=${PREV_SHA:-无} 本次=$SHA）"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK
+        if: steps.earlycheck.outputs.skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 迁移对账
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: python3 scripts/check_migrations.py
+
+      # 插件 host 方法表对账：宿主 PluginRuntimeManager 的 host.* 分支与
+      # plugins/sdk/types/host.d.ts 的 HostMethodMap 必须一一对应，改宿主忘改 SDK 会在这里被拦。
+      - name: Check plugin host methods
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: node scripts/check-host-methods.mjs
+
+      # 插件页面桥对账：PluginWebBridge / PluginOverlayBridge 的 dispatch 分支与
+      # assets/plugin-ui/aicode.js 的 call(...) 必须一一对应，否则运行期 METHOD_UNKNOWN。
+      - name: Check plugin page bridge
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: node scripts/check-page-bridge.mjs
+
+      # 插件清单校验：用 plugins/schema/plugin.schema.json 校验仓库内所有 plugin.json，
+      # 字段写错在 CI 就暴露，不用等装到设备上被 PluginManifestParser 拒绝。
+      - name: Check plugin manifests
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: node scripts/check-plugin-manifests.mjs
+
+      # beta 继承 release 的签名配置，需先从仓库 Secrets 还原签名密钥（与 android-release.yml 一致，不入库）。
+      - name: 还原 release 签名（从仓库 Secrets 注入）
+        if: steps.earlycheck.outputs.skip != 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          echo "$KEYSTORE_B64" | base64 -d > app/AiVerse.jks
+          printf 'storeFile=AiVerse.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > app/keystore.properties
+
+      # 三架构 beta 包：universal（通用，含 arm+x86 两套镜像）/ armsolo（arm64 真机）/ x86solo（x86_64 模拟器）
+      - name: 构建 beta 测试包（三架构，正式签名）
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: |
+          ./gradlew :app:assembleUniversalBeta :app:assembleArmsoloBeta :app:assembleX86soloBeta
+
+      - name: 收集产物
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: |
+          set -e
+          mkdir -p dist
+          cp app/build/outputs/apk/universal/beta/app-universal-beta.apk "dist/AiVerse-universal-beta.apk"
+          cp app/build/outputs/apk/armsolo/beta/app-armsolo-beta.apk "dist/AiVerse-arm64-beta.apk"
+          cp app/build/outputs/apk/x86solo/beta/app-x86solo-beta.apk "dist/AiVerse-x86_64-beta.apk"
+
+          # 说明 txt：测试版声明 + 包含的三个 APK + 本次 commit
+          SHA=$(git rev-parse --short HEAD)
+          BUILD_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+          cat > "dist/README.txt" <<EOF
+          AiVerse 测试版（Beta）安装说明
+          =================================
+
+          【请先阅读】
+          测试版不代表最终版本，仅供内部测试体验。
+          请勿二次分发、转包、上传或分享给他人，禁止用于商业用途。
+          测试包不参与应用内检查更新，不会触发覆盖正式版的升级提示。
+
+          本次构建
+          - commit：$SHA
+          - 构建时间：$BUILD_TIME
+          - 包名：com.aiverse.beta（可与正式版同机共存，互不覆盖）
+
+          安装包选择
+          本次提供三个 APK，请按设备类型选择安装：
+
+          - AiVerse-universal-beta.apk
+            通用版，包含 arm + x86 两套镜像，体积最大，任意设备可安装。
+            不确定设备架构时，优先选择此版本。
+
+          - AiVerse-arm64-beta.apk
+            arm64 真机版，绝大多数真机选择此版本，体积最小。
+
+          - AiVerse-x86_64-beta.apk
+            x86_64 模拟器版，模拟器选择此版本。
+
+          正式版下载
+          https://aivapp.cn/download
+
+          官方仓库
+          https://github.com/yhdmgf/aiverse
+
+          安装前请确认设备架构；如不确定，建议安装 universal 通用版。
+          EOF
+          # heredoc 正文必须与 run: | 块缩进一致（顶格会破坏 YAML），
+          # 故写入后再剥掉行首 10 空格，让 txt 内容真正顶格。
+          sed -i 's/^          //' "dist/README.txt"
+          touch -d "1949-10-01 00:00:00" "dist/README.txt"
+
+          ls -la dist/
+
+      - name: 输出构建信息到运行摘要
+        if: steps.earlycheck.outputs.skip != 'true'
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          echo "## Nightly 构建（beta 测试包）" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 构建: beta（正式签名 + R8，包名 com.aiverse.beta，与正式版独立共存）" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 三架构: universal / arm64 / x86_64" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 测试包不参与检查更新（无应用内升级，避免导向正式包）" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 下载: 下方三个 APK 资产（按设备类型选）+ README.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      # 三架构 APK 各自独立 + 测试版说明 txt，作为测试版仓库 Release 的资产。
+      - name: 发布到测试版仓库 Releases
+        if: steps.earlycheck.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BETA_RELEASE_TOKEN }}
+          TARGET_REPO: yhdmgf/aiverse-beta
+        run: |
+          set -e
+          SHA=$(git rev-parse --short HEAD)
+
+          # 枚举所有 tags 取最大版本号（比 gh release view 取 latest 更稳，避免首次/空 latest 误判），按 1.0.x 递增（patch 满 99 进位到 2.0.0）
+          PREV=$(gh api "repos/$TARGET_REPO/tags" --paginate --jq '.[].name' 2>/dev/null \
+                  | sed 's/^v//' | sort -V | tail -n1)
+          echo "上一个版本: ${PREV:-无（首次发布）}"
+
+          # 提取「上一个测试版」release body 里的主仓库 commit SHA（格式「测试版构建（commit xxx）」），
+          # 用作 git log 生成自上个测试版以来变更列表的基线；拿不到或不在主仓库历史则回退为最近提交。
+          PREV_SHA=""
+          if [ -n "$PREV" ]; then
+            PREV_BODY=$(gh release view "$PREV" --repo "$TARGET_REPO" --json body -q .body 2>/dev/null || true)
+            if [ -n "$PREV_BODY" ]; then
+              PREV_SHA=$(echo "$PREV_BODY" | grep -oE 'commit [0-9a-f]{7,40}' | head -n1 | awk '{print $2}')
+            fi
+          fi
+          if [ -n "$PREV_SHA" ]; then
+            # 需同时满足：对象存在 且 是 HEAD 祖先（防止上个测试版从分叉分支构建，导致 PREV_SHA..HEAD 列表不准）
+            if ! git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null || ! git merge-base --is-ancestor "$PREV_SHA" HEAD 2>/dev/null; then
+              echo "警告：上次测试版 commit $PREV_SHA 不在主仓库 HEAD 历史（不存在或非祖先），回退为最近提交"
+              PREV_SHA=""
+            fi
+          fi
+          echo "上次测试版 commit: ${PREV_SHA:-未知（无法作为 git log 基线）}"
+          if [ -z "$PREV" ]; then
+            MAJOR=1; MINOR=0; PATCH=0
+          else
+            BASE=${PREV%%-*}
+            IFS=. read -r MAJOR MINOR PATCH <<< "$BASE"
+            MAJOR=${MAJOR:-1}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
+          fi
+          PATCH=$((PATCH + 1))
+          # 每位数字只保留一位（0-9）：patch 满 10 进 minor，minor 满 10 进 major（如 1.0.9 -> 1.1.0 -> 1.1.1）
+          if [ "$PATCH" -ge 10 ]; then PATCH=0; MINOR=$((MINOR + 1)); fi
+          if [ "$MINOR" -ge 10 ]; then MINOR=0; MAJOR=$((MAJOR + 1)); fi
+          VER="${MAJOR}.${MINOR}.${PATCH}"
+          echo "本次发布版本: $VER"
+
+          # 兕底：若同 tag 的 release/tag 已存在（如上次构建残留），先删干净再建新，避免撞车失败
+          if gh release view "$VER" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            echo "检测到已存在 release $VER，先删除（release + tag）后重建"
+            gh release delete "$VER" --repo "$TARGET_REPO" --yes --cleanup-tag
+          fi
+
+          # 生成 Release notes：固定提示段（保留原句）+ 自上个测试版以来的变更列表（主仓库 git log），拼成多行变量 NOTES 供 --notes 使用（不落临时文件）。
+          CHANGE_SUMMARY="无法确定上次构建基线"
+          if [ -n "$PREV_SHA" ]; then
+            CHANGELOG=$(git log --oneline --no-decorate "${PREV_SHA}..HEAD")
+            if [ -z "$(echo "$CHANGELOG" | tr -d '[:space:]')" ]; then
+              CHANGE_SUMMARY="自上个测试版以来无新提交"
+            else
+              TOTAL=$(echo "$CHANGELOG" | wc -l | tr -d '[:space:]')
+              CHANGE_SUMMARY="自上个测试版以来 ${TOTAL} 条提交"
+            fi
+          else
+            CHANGE_SUMMARY="无法确定上次构建基线，列出最近 20 条提交"
+          fi
+          NOTES="$(
+            printf '%s\n' "测试版构建（commit $SHA）。三架构 APK 见下方资产，按设备类型选择安装。测试版不代表最终版本，请勿二传。" "" "## 自上个测试版以来的变更"
+            if [ -n "$PREV_SHA" ]; then
+              if [ -z "$(echo "$CHANGELOG" | tr -d '[:space:]')" ]; then
+                printf '%s\n' "无（自上次测试版后无新提交）"
+              else
+                # 按 Conventional Commits 类型粗分组（固定顺序），无法识别的归入「其它」
+                for TYPE in feat fix refactor perf docs style test build ci chore; do
+                  GROUP=$(printf '%s\n' "$CHANGELOG" | grep -E "^[0-9a-f]+ ${TYPE}(\\(|:)" || true)
+                  if [ -n "$GROUP" ]; then
+                    printf '%s\n' "### $TYPE"
+                    printf '%s\n' "$GROUP" | sed -E "s/^[0-9a-f]+ ${TYPE}(\\([^)]*\\))?: /- /"
+                    printf '%s\n' ""
+                  fi
+                done
+                OTHER=$(printf '%s\n' "$CHANGELOG" | grep -vE "^[0-9a-f]+ (feat|fix|refactor|perf|docs|style|test|build|ci|chore)(\\(|:)" || true)
+                if [ -n "$OTHER" ]; then
+                  printf '%s\n' "### 其它"
+                  printf '%s\n' "$OTHER" | sed -E "s/^[0-9a-f]+ //" | sed 's/^/- /'
+                  printf '%s\n' ""
+                fi
+              fi
+            else
+              printf '%s\n' "无法确定上次构建基线，以下为最近提交：" ""
+              git log --oneline --no-decorate -20
+            fi
+          )"
+          echo "Release notes 已生成："
+          printf '%s\n' "$NOTES"
+
+          # 三个 APK 各自独立上传为 release 资产（文件名固定，不带版本号），附使用说明 txt
+          gh release create "$VER" \
+            --repo "$TARGET_REPO" \
+            --title "AiVerse 测试版 $VER" \
+            --notes "$NOTES" \
+            "dist/AiVerse-universal-beta.apk" \
+            "dist/AiVerse-arm64-beta.apk" \
+            "dist/AiVerse-x86_64-beta.apk" \
+            "dist/README.txt"
+
+          echo "## Nightly 构建（beta 测试包）" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 版本: \`$VER\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 发布: [yhdmgf/aiverse-beta Releases](https://github.com/yhdmgf/aiverse-beta/releases)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 变更: ${CHANGE_SUMMARY}（详见 [Release notes](https://github.com/$TARGET_REPO/releases/tag/$VER)）" >> "$GITHUB_STEP_SUMMARY"

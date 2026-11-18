@@ -1,0 +1,2727 @@
+package com.aiverse.feature.settings.presentation.component
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aiverse.core.theme.AppThemePreset
+import com.aiverse.core.theme.ChatBubbleStyle
+import com.aiverse.core.theme.LocalUIDensityTokens
+import com.aiverse.core.theme.Spacing
+import com.aiverse.feature.plugins.domain.PluginUiSlots
+import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.plugins.presentation.PluginPageHost
+import com.aiverse.feature.plugins.presentation.PluginSettingsSection
+import com.aiverse.feature.plugins.presentation.PluginsViewModel
+import com.aiverse.feature.plugins.presentation.currentLanguageTag
+import com.aiverse.feature.plugins.presentation.displayName
+import com.aiverse.feature.plugins.presentation.pluginPageIcon
+import com.aiverse.core.theme.isDynamicColorSupported
+import com.aiverse.core.theme.semanticColors
+import com.aiverse.core.ui.AppSwitch
+import com.aiverse.core.ui.AppTextField
+import com.aiverse.core.ui.ListSelectionState
+import com.aiverse.core.ui.SelectionToggleAction
+import com.aiverse.core.ui.pageEnter
+import com.aiverse.core.ui.pageExit
+import com.aiverse.core.util.LogLevel
+import com.aiverse.R
+import com.aiverse.feature.agent.domain.mcp.McpScope
+import com.aiverse.feature.agent.domain.mcp.McpServerEntry
+import com.aiverse.feature.agent.domain.mcp.McpServerConfig
+import com.aiverse.feature.agent.domain.prompt.PromptFragment
+import com.aiverse.feature.agent.domain.prompt.PromptFragmentSource
+import com.aiverse.feature.agent.domain.model.Role
+import com.aiverse.feature.agent.domain.mcp.McpServerStatus
+import com.aiverse.feature.agent.presentation.component.MarkdownContent
+import com.aiverse.feature.agent.presentation.component.MarkdownRenderCache
+import com.aiverse.feature.backup.presentation.BackupScreen
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.aiverse.feature.settings.data.repository.AppThemeMode
+import com.aiverse.feature.settings.data.repository.BackgroundSettingsRepository
+import com.aiverse.feature.settings.domain.model.AIProviderConfig
+import com.aiverse.feature.settings.domain.model.ModelMetadata
+import com.aiverse.feature.settings.domain.model.WelcomeEntry
+import com.aiverse.feature.settings.presentation.SettingsViewModel
+import com.aiverse.feature.settings.presentation.ShizukuViewModel
+import com.aiverse.feature.phonecontrol.presentation.AccessibilityGrantScreen
+import com.aiverse.feature.phonecontrol.presentation.AppRulesScreen
+import com.aiverse.feature.phonecontrol.presentation.PhoneControlScreen
+import com.aiverse.feature.phonecontrol.presentation.PhoneControlViewModel
+import com.aiverse.feature.phonecontrol.presentation.UnlockScreen
+import com.aiverse.feature.settings.presentation.SkillImportState
+import com.aiverse.feature.settings.presentation.SkillUiEntry
+import com.aiverse.feature.agent.domain.skill.SkillImportError
+import com.aiverse.feature.agent.domain.skill.SkillScope
+import com.aiverse.feature.settings.presentation.SubAgentUiEntry
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.BarChart2
+import compose.icons.feathericons.Book
+import compose.icons.feathericons.Database
+import compose.icons.feathericons.BookOpen
+import compose.icons.feathericons.Box
+import compose.icons.feathericons.Volume2
+import compose.icons.feathericons.Cloud
+import compose.icons.feathericons.Cpu
+import compose.icons.feathericons.Download
+import compose.icons.feathericons.FileText
+import compose.icons.feathericons.Globe
+import compose.icons.feathericons.HardDrive
+import compose.icons.feathericons.Image
+import compose.icons.feathericons.Info
+import compose.icons.feathericons.Lock
+import compose.icons.feathericons.Moon
+import compose.icons.feathericons.MessageSquare
+import compose.icons.feathericons.Edit2
+import compose.icons.feathericons.MoreHorizontal
+import compose.icons.feathericons.Share2
+import compose.icons.feathericons.PieChart
+import compose.icons.feathericons.Plus
+import compose.icons.feathericons.Settings
+import compose.icons.feathericons.RefreshCw
+import compose.icons.feathericons.RotateCcw
+import compose.icons.feathericons.Save
+import compose.icons.feathericons.Server
+import compose.icons.feathericons.Shield
+import compose.icons.feathericons.Sliders
+import compose.icons.feathericons.Terminal
+import compose.icons.feathericons.Trash2
+import compose.icons.feathericons.Users
+import compose.icons.feathericons.User
+import compose.icons.feathericons.Wifi
+import compose.icons.feathericons.Zap
+import com.aiverse.feature.onboarding.domain.OnboardingStep
+import com.aiverse.feature.onboarding.presentation.onboardingTarget
+import com.aiverse.feature.settings.data.local.ProviderPreset
+import com.aiverse.feature.terminal.data.repository.TerminalSettings
+import com.aiverse.feature.terminal.presentation.component.TerminalSettingsSheet
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+
+/** 使用手册在线文档站地址。 */
+private const val USER_GUIDE_DOCS_URL = "https://aivapp.cn"
+
+/** 大屏设置页左侧常驻菜单宽度。 */
+private val SettingsMenuWidth = 320.dp
+
+/**
+ * 设置页走双栏所需的**自身**最小宽度。
+ *
+ * 不能直接拿窗口宽度判定：大屏下设置页左边还有常驻会话侧栏，按窗口算的话
+ * 小平板（约 840dp）上扇出三栏，详情区只剩 200dp 不到，根本没法用。
+ */
+private val SettingsTwoPaneMinWidth = 840.dp
+
+/** 设置页内部二级菜单分区。Menu 为首页菜单，其余为各自的二级页。 */
+internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
+    Menu(R.string.settings_title),
+    General(R.string.settings_general),
+    Providers(R.string.settings_providers),
+    ProviderEditor(R.string.settings_provider_editor),
+    DefaultModels(R.string.settings_default_models),
+    Mcp(R.string.settings_mcp),
+    Skills(R.string.settings_skills),
+    Prompts(R.string.prompts_title),
+    Roles(R.string.settings_roles),
+    Memory(R.string.settings_memory),
+    PromptDetail(R.string.prompts_title),
+    PromptEditor(R.string.prompts_title),
+    RoleDetail(R.string.settings_roles),
+    RoleEditor(R.string.settings_roles),
+    SkillDetail(R.string.settings_skills),
+    SkillEditor(R.string.settings_skills),
+    SubAgents(R.string.settings_subagents),
+    SubAgentDetail(R.string.settings_subagents),
+    SubAgentEditor(R.string.settings_subagents),
+    Container(R.string.settings_container),
+    ContainerDownloads(R.string.container_download_image),
+    Proxy(R.string.proxy_title),
+    Log(R.string.settings_log),
+    Permissions(R.string.settings_permissions),
+    AppPermissions(R.string.settings_app_permissions),
+    BackgroundRun(R.string.settings_category_background),
+    RemoteServers(R.string.settings_remote_servers),
+    WebServer(R.string.settings_web_server),
+    Storage(R.string.settings_storage),
+    TokenStats(R.string.settings_token_stats_title),
+    Backup(R.string.settings_backup),
+    About(R.string.settings_about),
+    Appearance(R.string.settings_appearance),
+    AppearanceDensity(R.string.settings_appearance_density_title),
+    AppearanceCorner(R.string.settings_appearance_corner_title),
+    AppearanceFont(R.string.settings_appearance_ui_font_title),
+    Plugins(R.string.settings_plugins),
+    Tts(R.string.settings_tts),
+    PluginRepo(R.string.plugins_repo_title),
+    PluginPage(R.string.settings_title),
+    SearchProvider(R.string.settings_search_provider),
+    SearchProviderDetail(R.string.settings_search_provider),
+    PhoneControl(R.string.phone_control_title),
+    PhoneControlAccessibilityGrant(R.string.a11y_grant_title),
+    PhoneControlUnlock(R.string.phone_unlock),
+    PhoneControlAppRules(R.string.phone_app_rules),
+}
+
+/**
+ * 分区层级：0 首页菜单，1 一级分区，2 分区里再翻一层的详情 / 编辑页，3 详情页之上的编辑页。
+ *
+ * 只用于判定切换方向（变浅算返回）。[SettingsSection.Log] 的上一层是动态的（见 logReturnSection），
+ * 统一当二级算：从菜单直接进它仍是 0 → 2 的「前进」，方向不会反。
+ */
+private fun SettingsSection.depth(): Int = when (this) {
+    SettingsSection.Menu -> 0
+    // 技能/子代理编辑页既可从列表(1) 进也可从详情页(2) 进，必须比详情页更深：
+    // 同深度会让「编辑 → 详情」也被当成前进，返回时页面从右侧滑入，方向是反的。
+    SettingsSection.SkillEditor,
+    SettingsSection.SubAgentEditor,
+    SettingsSection.PromptEditor,
+    SettingsSection.RoleEditor -> 3
+    SettingsSection.ProviderEditor,
+    SettingsSection.PromptDetail,
+    SettingsSection.RoleDetail,
+    SettingsSection.SkillDetail,
+    SettingsSection.SubAgentDetail,
+    SettingsSection.ContainerDownloads,
+    SettingsSection.Log,
+    SettingsSection.PluginRepo,
+    SettingsSection.SearchProvider,
+    SettingsSection.AppearanceDensity,
+    SettingsSection.AppearanceCorner,
+    SettingsSection.AppearanceFont -> 2
+    SettingsSection.SearchProviderDetail -> 3
+    SettingsSection.PhoneControl -> 2
+    SettingsSection.PhoneControlAccessibilityGrant,
+    SettingsSection.PhoneControlUnlock,
+    SettingsSection.PhoneControlAppRules -> 3
+    else -> 1
+}
+
+@OptIn(ExperimentalMaterial3Api::class, kotlin.uuid.ExperimentalUuidApi::class)
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onNavigateBack: () -> Unit,
+    initialSection: String = "",
+    onStopAllAndCloseTerminal: () -> Unit = {},
+    onRerunOnboarding: () -> Unit = {},
+    onboardingStep: OnboardingStep? = null,
+    onOnboardingModelAdded: (() -> Unit)? = null,
+    onOnboardingDismissFetchDialog: (() -> Unit)? = null
+) {
+    val providers by viewModel.providers.collectAsStateWithLifecycle()
+    val logLevel by viewModel.logLevel.collectAsStateWithLifecycle()
+    val logViewerState by viewModel.logViewerState.collectAsStateWithLifecycle()
+    val mcpAuthState by viewModel.mcpAuthState.collectAsStateWithLifecycle()
+    val mcpImportState by viewModel.mcpImportState.collectAsStateWithLifecycle()
+    val mcpEntries by viewModel.mcpEntries.collectAsStateWithLifecycle()
+    val mcpStatuses by viewModel.mcpStatuses.collectAsStateWithLifecycle()
+    val mcpReloading by viewModel.mcpReloading.collectAsStateWithLifecycle()
+    val skills by viewModel.skills.collectAsStateWithLifecycle()
+    val skillSaveState by viewModel.skillSaveState.collectAsStateWithLifecycle()
+    val skillImportState by viewModel.skillImportState.collectAsStateWithLifecycle()
+    val skillDeleting by viewModel.skillDeleting.collectAsStateWithLifecycle()
+    val subAgents by viewModel.subAgents.collectAsStateWithLifecycle()
+    val subAgentSaveState by viewModel.subAgentSaveState.collectAsStateWithLifecycle()
+    val subAgentDeleting by viewModel.subAgentDeleting.collectAsStateWithLifecycle()
+    val globalRules by viewModel.globalRules.collectAsStateWithLifecycle()
+    val projectRules by viewModel.projectRules.collectAsStateWithLifecycle()
+    val currentProjectName by viewModel.currentProjectName.collectAsStateWithLifecycle()
+    val disableSafetyInterception by viewModel.disableSafetyInterception.collectAsStateWithLifecycle()
+    val globalAutoApprove by viewModel.globalAutoApprove.collectAsStateWithLifecycle()
+    val overlayBallEnabled by viewModel.overlayBallEnabled.collectAsStateWithLifecycle()
+    // 悬浮窗授权页返回后自动启动悬浮球（用户曾开启但未授权时，授权完成后补齐启动）。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.checkPendingOverlayEnable()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val keepaliveEnabled by viewModel.keepaliveEnabled.collectAsStateWithLifecycle()
+    val screenOnEnabled by viewModel.screenOnEnabled.collectAsStateWithLifecycle()
+    val agentSoundEnabled by viewModel.agentSoundEnabled.collectAsStateWithLifecycle()
+    val liveNotificationEnabled by viewModel.liveNotificationEnabled.collectAsStateWithLifecycle()
+    val approvalNotificationEnabled by viewModel.approvalNotificationEnabled.collectAsStateWithLifecycle()
+    val autoRemoveStaleModels by viewModel.autoRemoveStaleModels.collectAsStateWithLifecycle()
+    val startupSessionMode by viewModel.startupSessionMode.collectAsStateWithLifecycle()
+    val firstByteTimeoutSec by viewModel.firstByteTimeoutSec.collectAsStateWithLifecycle()
+    val streamIdleTimeoutSec by viewModel.streamIdleTimeoutSec.collectAsStateWithLifecycle()
+    val maxNetworkRetries by viewModel.maxNetworkRetries.collectAsStateWithLifecycle()
+    val maxSubagentRunning by viewModel.maxSubagentRunning.collectAsStateWithLifecycle()
+    val enterToSend by viewModel.enterToSend.collectAsStateWithLifecycle()
+    val autoExpandReasoning by viewModel.autoExpandReasoning.collectAsStateWithLifecycle()
+    val compactionThresholdPercent by viewModel.compactionThresholdPercent.collectAsStateWithLifecycle()
+    val sendFileMaxSizeMb by viewModel.sendFileMaxSizeMb.collectAsStateWithLifecycle()
+    val goalMaxTurns by viewModel.goalMaxTurns.collectAsStateWithLifecycle()
+    val goalMaxTokens by viewModel.goalMaxTokens.collectAsStateWithLifecycle()
+    val deleteExternalWorkspaceSessions by viewModel.deleteExternalWorkspaceSessions.collectAsStateWithLifecycle()
+    val mcpLazyTools by viewModel.mcpLazyTools.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val welcomeEntries by viewModel.welcomeEntries.collectAsStateWithLifecycle()
+    val themePresetId by viewModel.themePresetId.collectAsStateWithLifecycle()
+    val dynamicColorEnabled by viewModel.dynamicColorEnabled.collectAsStateWithLifecycle()
+    val iconColorEnabled by viewModel.iconColorEnabled.collectAsStateWithLifecycle()
+    val userBubbleStyle by viewModel.userBubbleStyle.collectAsStateWithLifecycle()
+    val assistantBubbleStyle by viewModel.assistantBubbleStyle.collectAsStateWithLifecycle()
+    val backgroundImagePath by viewModel.backgroundImagePath.collectAsStateWithLifecycle()
+    val backgroundAlpha by viewModel.backgroundAlpha.collectAsStateWithLifecycle()
+    val backgroundMode by viewModel.backgroundMode.collectAsStateWithLifecycle()
+    val backgroundPortraitHeight by viewModel.backgroundPortraitHeight.collectAsStateWithLifecycle()
+    // 背景预览要与聊天页一致，需知道当前是否暗色主题（决定额外压暗那一层）。
+    val darkTheme = when (themeMode) {
+        AppThemeMode.AUTO -> isSystemInDarkTheme()
+        AppThemeMode.DARK -> true
+        AppThemeMode.LIGHT -> false
+    }
+    val chatFontSizeSp by viewModel.chatFontSizeSp.collectAsStateWithLifecycle()
+    val inputFontSizeSp by viewModel.inputFontSizeSp.collectAsStateWithLifecycle()
+    val uiFontScale by viewModel.uiFontScale.collectAsStateWithLifecycle()
+    val uiDensity by viewModel.uiDensity.collectAsStateWithLifecycle()
+    val uiFontPath by viewModel.uiFontPath.collectAsStateWithLifecycle()
+    val cardCorner by viewModel.cardCorner.collectAsStateWithLifecycle()
+    val buttonCorner by viewModel.buttonCorner.collectAsStateWithLifecycle()
+    val fieldCorner by viewModel.fieldCorner.collectAsStateWithLifecycle()
+    val bubbleCorner by viewModel.bubbleCorner.collectAsStateWithLifecycle()
+    val imageCorner by viewModel.imageCorner.collectAsStateWithLifecycle()
+    val fileTreeDisplayPrefs by viewModel.fileTreeDisplayPrefs.collectAsStateWithLifecycle()
+    val codeFontSizeSp by viewModel.codeFontSizeSp.collectAsStateWithLifecycle()
+    val codeWrapEnabled by viewModel.codeWrapEnabled.collectAsStateWithLifecycle()
+    val codeAutoFoldEnabled by viewModel.codeAutoFoldEnabled.collectAsStateWithLifecycle()
+    val codeShowLineNumber by viewModel.codeShowLineNumber.collectAsStateWithLifecycle()
+    val userBubbleOpacity by viewModel.userBubbleOpacity.collectAsStateWithLifecycle()
+    val assistantBubbleOpacity by viewModel.assistantBubbleOpacity.collectAsStateWithLifecycle()
+    val inputBarPrefs by viewModel.inputBarPrefs.collectAsStateWithLifecycle()
+    val defaultSkillInstallScope by viewModel.defaultSkillInstallScope.collectAsStateWithLifecycle()
+    val languageTag by viewModel.languageTag.collectAsStateWithLifecycle()
+    val visionProviderId by viewModel.visionProviderId.collectAsStateWithLifecycle()
+    val visionModel by viewModel.visionModel.collectAsStateWithLifecycle()
+    val compactionProviderId by viewModel.compactionProviderId.collectAsStateWithLifecycle()
+    val compactionModel by viewModel.compactionModel.collectAsStateWithLifecycle()
+    val titleProviderId by viewModel.titleProviderId.collectAsStateWithLifecycle()
+    val titleModel by viewModel.titleModel.collectAsStateWithLifecycle()
+    val optimizeProviderId by viewModel.optimizeProviderId.collectAsStateWithLifecycle()
+    val optimizeModel by viewModel.optimizeModel.collectAsStateWithLifecycle()
+    val subagentTierSelections by viewModel.subagentTierSelections.collectAsStateWithLifecycle()
+    val imageGenProviderId by viewModel.imageGenProviderId.collectAsStateWithLifecycle()
+    val imageGenModel by viewModel.imageGenModel.collectAsStateWithLifecycle()
+    val modelMetadata by viewModel.modelMetadata.collectAsStateWithLifecycle()
+    val containerProfiles by viewModel.profiles.collectAsStateWithLifecycle()
+    val activeProfileId by viewModel.activeProfileId.collectAsStateWithLifecycle()
+    val defaultContainerId by viewModel.defaultContainerId.collectAsStateWithLifecycle()
+    val containerOsMap by viewModel.containerOsMap.collectAsStateWithLifecycle()
+    val remoteConnections by viewModel.remoteConnections.collectAsStateWithLifecycle()
+    val tokenStats by viewModel.tokenStats.collectAsStateWithLifecycle()
+    val updateCheckEnabled by viewModel.updateCheckEnabled.collectAsStateWithLifecycle()
+    val updateCheckChannel by viewModel.updateCheckChannel.collectAsStateWithLifecycle()
+    val updateCheckMirror by viewModel.updateCheckMirror.collectAsStateWithLifecycle()
+    val containerAnnouncementText by viewModel.containerAnnouncementText.collectAsStateWithLifecycle()
+    val containerAnnouncementOutdated by viewModel.containerAnnouncementOutdated.collectAsStateWithLifecycle()
+    val promptsAnnouncementText by viewModel.promptsAnnouncementText.collectAsStateWithLifecycle()
+    val promptsAnnouncementOutdated by viewModel.promptsAnnouncementOutdated.collectAsStateWithLifecycle()
+    val imageCatalog by viewModel.imageCatalog.collectAsStateWithLifecycle()
+    val imageVersions by viewModel.imageVersions.collectAsStateWithLifecycle()
+    val imageDownload by viewModel.containerImageDownload.collectAsStateWithLifecycle()
+    val containerReset by viewModel.containerReset.collectAsStateWithLifecycle()
+    val imageSourceOptions by viewModel.imageSourceOptions.collectAsStateWithLifecycle()
+    val selectedImageSource by viewModel.selectedImageSource.collectAsStateWithLifecycle()
+    val downloadedImages by viewModel.downloadedImages.collectAsStateWithLifecycle()
+    val sourceUnavailableIds by viewModel.sourceUnavailableIds.collectAsStateWithLifecycle()
+    val terminalSettings by viewModel.terminalSettings.collectAsStateWithLifecycle()
+    val proxyConfig by viewModel.proxyConfig.collectAsStateWithLifecycle()
+    val proxyTestState by viewModel.proxyTestState.collectAsStateWithLifecycle()
+    var showTerminalSettingsSheet by remember { mutableStateOf(false) }
+
+    // 插件分区顶栏「＋」导入与「⚙」设置按钮：触发逻辑由 PluginSettingsSection 上报（zipLauncher/设置弹层
+    // 保留在组件内，不提升），SettingsScreen 顶栏只负责触发。
+    var pluginImportTrigger by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var pluginSettingsTrigger by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val context = LocalContext.current
+    // 技能分享/导出公共入口（顶栏 ⋯ 菜单与批量底部栏共用同一份，避免各自创建 launcher）。
+    val skillShareExport = rememberSkillShareExport()
+
+    // 批量分享选中技能：打包单个 zip 后走系统分享（FileProvider 授权）。
+    fun shareSkillEntries(targets: List<SkillUiEntry>) {
+        if (targets.isEmpty()) return
+        viewModel.buildSkillExportZip(targets.map { it.name to it.scope }) { bytes ->
+            if (bytes == null) {
+                Toast.makeText(context, context.getString(R.string.skills_share_failed), Toast.LENGTH_SHORT).show()
+            } else {
+                skillShareExport.shareZip(
+                    bytes,
+                    "skills.zip",
+                    context.getString(R.string.skills_share_chooser)
+                ) { ok ->
+                    if (!ok) Toast.makeText(context, context.getString(R.string.skills_share_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // 批量导出选中技能：打包单个 zip 后用 SAF 存到本地。
+    fun exportSkillEntries(targets: List<SkillUiEntry>) {
+        if (targets.isEmpty()) return
+        viewModel.buildSkillExportZip(targets.map { it.name to it.scope }) { bytes ->
+            if (bytes == null) {
+                Toast.makeText(context, context.getString(R.string.skills_export_failed), Toast.LENGTH_SHORT).show()
+            } else {
+                skillShareExport.exportZip(bytes, "skills.zip") { ok ->
+                    Toast.makeText(
+                        context,
+                        context.getString(if (ok) R.string.skills_export_success else R.string.skills_export_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    val currentLanguageDisplayName = if (languageTag.isNullOrBlank()) {
+        stringResource(R.string.language_follow_system)
+    } else {
+        com.aiverse.core.util.LanguageRegistry.languages.firstOrNull { it.tag == languageTag }?.displayName
+            ?: stringResource(R.string.language_follow_system)
+    }
+
+    var section by remember {
+        mutableStateOf(
+            when (initialSection) {
+                "providers" -> SettingsSection.Providers
+                "mcp" -> SettingsSection.Mcp
+                "phoneControl" -> SettingsSection.PhoneControl
+                "search_provider" -> SettingsSection.SearchProvider
+                "default_models" -> SettingsSection.DefaultModels
+                "roles" -> SettingsSection.Roles
+                else -> SettingsSection.Menu
+            }
+        )
+    }
+    var logReturnSection by remember { mutableStateOf(SettingsSection.Menu) }
+    var phoneControlGrantReturn by remember { mutableStateOf(SettingsSection.PhoneControl) }
+    // 插件入口页：设置页里打开的插件 HTML 页面（contributes.uiEntries 的 page 贡献）。
+    // 直接从插件快照算入口，不走 PluginManager.ensureLoaded：组合期间不能同步读盘。
+    val pluginsViewModel: PluginsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val plugins by pluginsViewModel.plugins.collectAsStateWithLifecycle()
+    val pluginLanguageTag = currentLanguageTag()
+    val pluginPages = remember(plugins, pluginLanguageTag) {
+        plugins.filter { it.isActive }
+            .sortedBy { it.displayName(pluginLanguageTag) }
+            .flatMap { plugin ->
+                plugin.content?.uiEntries.orEmpty().mapNotNull { entry ->
+                    entry.page?.copy(pluginVersion = plugin.record.version)
+                }
+            }
+    }
+    var activePluginPage by remember { mutableStateOf<PluginPage?>(null) }
+    // 各列表页的多选状态：顶栏「多选」开关在本页 Scaffold 里，所以状态必须提到这里统一持有。
+    // 用普通 map（非 snapshot）新建容器，避免在组合期写快照状态；Compose 状态在 ListSelectionState 内部。
+    val listSelections = remember { mutableMapOf<SettingsSection, ListSelectionState>() }
+    fun selectionFor(target: SettingsSection): ListSelectionState =
+        listSelections.getOrPut(target) { ListSelectionState() }
+    var editingProvider by remember { mutableStateOf<AIProviderConfig?>(null) }
+    var showAddProviderSheet by remember { mutableStateOf(false) }
+    var showAddSearchProviderSheet by remember { mutableStateOf(false) }
+    var selectedSearchServiceId by remember { mutableStateOf<kotlin.uuid.Uuid?>(null) }
+    var providerPresetPrefill by remember { mutableStateOf<ProviderPreset?>(null) }
+    var showMcpDialog by remember { mutableStateOf(false) }
+    var editingMcp by remember { mutableStateOf<McpServerEntry?>(null) }
+    var showMcpAddSheet by remember { mutableStateOf(false) }
+    var showMcpJsonImport by remember { mutableStateOf(false) }
+
+    // 从「允许安装未知应用」设置页返回后：已授权则直接安装已下载的扩展 APK
+    var mcpAddScope by remember { mutableStateOf(McpScope.PROJECT) }
+
+    LaunchedEffect(onboardingStep) {
+        when (onboardingStep) {
+            OnboardingStep.CONFIG_PROVIDER -> {
+                section = SettingsSection.Menu
+            }
+            OnboardingStep.PROVIDER_ADD -> {
+                section = SettingsSection.Providers
+            }
+            OnboardingStep.PROVIDER_CONFIG_INFO -> {
+                if (section != SettingsSection.ProviderEditor) {
+                    val deepseek = providers.firstOrNull { it.name.contains("deepseek", ignoreCase = true) }
+                        ?: providers.firstOrNull()
+                    editingProvider = deepseek
+                    if (deepseek == null && providerPresetPrefill == null) {
+                        providerPresetPrefill = ProviderPreset(
+                            id = "deepseek",
+                            name = "DeepSeek",
+                            type = "DEEPSEEK",
+                            baseUrl = "https://api.deepseek.com",
+                            models = emptyList<String>()
+                        )
+                    }
+                    section = SettingsSection.ProviderEditor
+                }
+            }
+            OnboardingStep.PROVIDER_FETCH_MODELS,
+            OnboardingStep.SIMULATE_FETCH_DIALOG -> {
+                if (section != SettingsSection.ProviderEditor) {
+                    val deepseek = providers.firstOrNull { it.name.contains("deepseek", ignoreCase = true) }
+                        ?: providers.firstOrNull()
+                    editingProvider = deepseek
+                    if (deepseek == null && providerPresetPrefill == null) {
+                        providerPresetPrefill = ProviderPreset(
+                            id = "deepseek",
+                            name = "DeepSeek",
+                            type = "DEEPSEEK",
+                            baseUrl = "https://api.deepseek.com",
+                            models = emptyList<String>()
+                        )
+                    }
+                    section = SettingsSection.ProviderEditor
+                }
+            }
+            else -> {}
+        }
+    }
+    var selectedSkill by remember { mutableStateOf<SkillUiEntry?>(null) }
+    var skillToDelete by remember { mutableStateOf<SkillUiEntry?>(null) }
+
+    // 自定义提示词：编辑目标（新建/编辑/固定片段）+ 「重置」确认弹窗可见性
+    var showResetPrompts by remember { mutableStateOf(false) }
+    var promptEditTarget by remember { mutableStateOf<PromptEditTarget?>(null) }
+    var selectedPrompt by remember { mutableStateOf<PromptFragment?>(null) }
+    var showPromptsAnnouncement by remember { mutableStateOf(false) }
+    // 编辑页返回目标：从详情进就回详情，从列表「+」进就回列表。
+    var promptEditorReturn by remember { mutableStateOf(SettingsSection.Prompts) }
+    // 角色详情 / 编辑目标：selectedRole 供详情展示，editingRole 供编辑（null 表示新建）。
+    var selectedRole by remember { mutableStateOf<Role?>(null) }
+    var editingRole by remember { mutableStateOf<Role?>(null) }
+    var roleEditorReturn by remember { mutableStateOf(SettingsSection.Roles) }
+    // 技能编辑目标：null 表示新建一个；编辑现有技能时指向被编辑的条目。
+    var editingSkill by remember { mutableStateOf<SkillUiEntry?>(null) }
+    // 编辑页的返回目标：从详情页进就回详情页，从列表顶栏「＋」进就回列表。
+    var skillEditorReturn by remember { mutableStateOf(SettingsSection.Skills) }
+    // 保存后要在详情页展示的技能名：列表刷新是异步的，先记名字等刷新完再换快照。
+    var pendingSkillName by remember { mutableStateOf<String?>(null) }
+    // 「添加技能」底部弹层：选择作用域后走手动新建 / 文件导入 / 压缩包导入 / GitHub 拉取。
+    var showSkillAddSheet by remember { mutableStateOf(false) }
+    var skillImportScope by remember { mutableStateOf(SkillScope.GLOBAL) }
+    // 记忆页顶栏「新建」触发标志：MemorySection 内部观察到 true 就弹出新建记忆 dialog 并复位。
+    var showMemoryEditor by remember { mutableStateOf(false) }
+    // 「从 GitHub 拉取」输入仓库地址的对话框可见性。
+    var showGithubSkillDialog by remember { mutableStateOf(false) }
+    // 技能文件 / 压缩包选择器：结果交给 ViewModel 读取并落盘到所选作用域。
+    val skillFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importSkillFromMarkdown(uri, skillImportScope)
+    }
+    val skillZipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importSkillsFromZip(uri, skillImportScope)
+    }
+    var selectedSubAgent by remember { mutableStateOf<SubAgentUiEntry?>(null) }
+    var subAgentToDelete by remember { mutableStateOf<SubAgentUiEntry?>(null) }
+    // 子代理编辑目标：null 表示新建一个；编辑现有定义时指向被编辑的条目。
+    var editingSubAgent by remember { mutableStateOf<SubAgentUiEntry?>(null) }
+    // 编辑页的返回目标：从详情页进就回详情页，从列表顶栏「＋」进就回列表。
+    var subAgentEditorReturn by remember { mutableStateOf(SettingsSection.SubAgents) }
+    // 保存后要在详情页展示的子代理名：列表刷新是异步的，先记名字等刷新完再换快照。
+    var pendingSubAgentName by remember { mutableStateOf<String?>(null) }
+    // 子代理提示词 Markdown 解析缓存：与技能详情同理，避免重复解析卡顿
+    val subAgentMarkdownCache = remember { MarkdownRenderCache() }
+    // 技能正文 Markdown 解析缓存：详情页多次进入复用，避免重复解析卡顿
+    val skillMarkdownCache = remember { MarkdownRenderCache() }
+    var showContainerAddSheet by remember { mutableStateOf(false) }
+    var showContainerAnnouncement by remember { mutableStateOf(false) }
+    var showImageSourceSheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var showBackgroundSheet by remember { mutableStateOf(false) }
+    var showWelcomeEntriesSheet by remember { mutableStateOf(false) }
+    var showUserBubbleStyleSheet by remember { mutableStateOf(false) }
+    var showAssistantBubbleStyleSheet by remember { mutableStateOf(false) }
+    var showLanguageSheet by remember { mutableStateOf(false) }
+    var showResetTokenStats by remember { mutableStateOf(false) }
+
+    // 主题包导出：exportRequest 计数器作触发器，exportedThemeJson 存导出结果（null = 未触发 / 失败）。
+    var exportRequest by remember { mutableStateOf(0) }
+    var exportedThemeJson by remember { mutableStateOf<String?>(null) }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val expanded = maxWidth >= SettingsTwoPaneMinWidth
+
+    // 主题包导出：exportRequest 计数器变化（且 >0）时触发一次导出，把 JSON 写入
+    // exportedThemeJson 传给外观页分享；失败置 null（外观页不分享，这里 Toast 提示）。
+    LaunchedEffect(exportRequest) {
+        if (exportRequest <= 0) return@LaunchedEffect
+        viewModel.exportThemePackage { json ->
+            if (json == null) {
+                Toast.makeText(
+                    context,
+                    R.string.settings_appearance_theme_package_export_failed,
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                exportedThemeJson = json
+            }
+        }
+    }
+
+    // 返回目标：null 表示没有上一层，返回动作交还上层导航（退出设置页）。
+    // 大屏左菜单常驻，一级分区页没有「上一层」——回菜单只会得到一个空占位。
+    // 返回键与顶栏返回箭头共用这一份判定，不再各写一套（之前两处不一致，镜像下载页返回会直接跳回菜单）。
+    val parentSection: SettingsSection? = when (section) {
+        SettingsSection.Menu -> null
+        SettingsSection.ProviderEditor -> SettingsSection.Providers
+        SettingsSection.Log -> logReturnSection.takeUnless { expanded && it == SettingsSection.Menu }
+        SettingsSection.SkillDetail -> SettingsSection.Skills
+        SettingsSection.PromptEditor -> promptEditorReturn
+        SettingsSection.PromptDetail -> SettingsSection.Prompts
+        SettingsSection.RoleEditor -> roleEditorReturn
+        SettingsSection.RoleDetail -> SettingsSection.Roles
+        SettingsSection.SkillEditor -> skillEditorReturn
+        SettingsSection.SubAgentDetail -> SettingsSection.SubAgents
+        SettingsSection.SubAgentEditor -> subAgentEditorReturn
+        SettingsSection.ContainerDownloads -> SettingsSection.Container
+        SettingsSection.PluginRepo -> SettingsSection.Plugins
+        SettingsSection.SearchProviderDetail -> SettingsSection.SearchProvider
+        SettingsSection.PhoneControl -> if (expanded) null else SettingsSection.Menu
+        SettingsSection.AppearanceDensity -> SettingsSection.Appearance
+        SettingsSection.AppearanceCorner -> SettingsSection.Appearance
+        SettingsSection.AppearanceFont -> SettingsSection.Appearance
+        SettingsSection.PhoneControlAccessibilityGrant -> phoneControlGrantReturn
+        SettingsSection.PhoneControlUnlock -> SettingsSection.PhoneControl
+        SettingsSection.PhoneControlAppRules -> SettingsSection.PhoneControl
+        else -> if (expanded) null else SettingsSection.Menu
+    }
+
+    // 有上一层时系统返回键先回上一层；没有则交还给上层导航。
+    BackHandler(enabled = parentSection != null) {
+        parentSection?.let { section = it }
+    }
+
+    // 离开某个列表分区时清理其多选状态：分区切换后对「上一个分区」退出多选并清空勾选，
+    // 否则再次进入同一列表分区时仍停留多选态、之前勾选项残留（issue #77）。
+    // 只在「分区真正切换」这一时机清理——弹编辑对话框（如 MCP 点编辑是弹窗、section 不变）
+    // 与点行进详情（Skills/Prompts/SubAgents 进详情前已自行 exit）都不会走到这里。
+    val lastListSection = remember { mutableStateOf<SettingsSection?>(null) }
+    LaunchedEffect(section) {
+        val previous = lastListSection.value
+        if (previous != null && previous != section) {
+            listSelections[previous]?.exit()
+        }
+        lastListSection.value = section
+    }
+
+    // settingsViewModel 为 Activity 级共享实例，每次进入设置页重新扫描技能，反映磁盘增删改。
+    LaunchedEffect(Unit) {
+        viewModel.refreshSkills()
+        viewModel.refreshSubAgents()
+    }
+
+    // 编辑保存后回详情页：等列表刷新出新快照再换，避免详情页停在保存前的旧值（改名时按新名找）。
+    LaunchedEffect(skills, pendingSkillName) {
+        val target = pendingSkillName ?: return@LaunchedEffect
+        skills.firstOrNull { it.name.equals(target, ignoreCase = true) }?.let { fresh ->
+            selectedSkill = fresh
+            pendingSkillName = null
+        }
+    }
+
+    // 编辑保存后回详情页：等列表刷新出新快照再换，避免详情页停在保存前的旧值（改名时按新名找）。
+    LaunchedEffect(subAgents, pendingSubAgentName) {
+        val target = pendingSubAgentName ?: return@LaunchedEffect
+        subAgents.firstOrNull { it.name.equals(target, ignoreCase = true) }?.let { fresh ->
+            selectedSubAgent = fresh
+            pendingSubAgentName = null
+        }
+    }
+
+    // 首次（或公告内容更新后）进入「容器与镜像」页自动弹出使用说明；哈希比对在 ViewModel 完成。
+    LaunchedEffect(section, containerAnnouncementOutdated) {
+        if (section == SettingsSection.Container && containerAnnouncementOutdated && containerAnnouncementText.isNotBlank()) {
+            showContainerAnnouncement = true
+        }
+    }
+
+    // 首次（或公告内容更新后）进入「提示词」页自动弹出使用说明公告；哈希比对在 ViewModel 完成。
+    LaunchedEffect(section, promptsAnnouncementOutdated) {
+        if (section == SettingsSection.Prompts && promptsAnnouncementOutdated && promptsAnnouncementText.isNotBlank()) {
+            showPromptsAnnouncement = true
+        }
+    }
+
+    // 菜单内容：窄窗当首页用，大屏当常驻左栏用，共用同一份。
+    // 滚动位置必须提到 AnimatedContent 之外持有：菜单页作为分区分支被切走时会被 dispose，
+    // 内部 rememberScrollState 一并丢弃，从二级页返回就跳回顶部。
+    val menuScrollState = rememberScrollState()
+    // 记忆「假插件」开关：默认开启。开启时设置页显示记忆入口且 AI 可调用记忆；
+    // 关闭时隐藏记忆入口（菜单行不可点击进入记忆管理）且 MemoryTool 禁用。
+    // 用 hiltViewModel 复用 MemoryViewModel（与 MemorySection 同一实例，避免重复实例化）。
+    val memoryViewModel: com.aiverse.feature.settings.presentation.MemoryViewModel =
+        androidx.hilt.navigation.compose.hiltViewModel()
+    val memoryEnabled by memoryViewModel.memoryEnabled.collectAsStateWithLifecycle()
+    // 同理：一级 / 详情页整块内容切走后会被 AnimatedContent dispose，内部 rememberScrollState、
+    // rememberLazyListState 一并丢失，从下一级页面返回就跳回顶部（供应商、技能、MCP 等所有列表都中招）。
+    // 用 SaveableStateHolder 按分区名接住这些 rememberSaveable 状态；编辑类页面不走这一步
+    // （它们在 AnimatedContent 里是独立分支），否则每次进编辑器会把上次的输入恢复出来。
+    val sectionStateHolder = rememberSaveableStateHolder()
+    val menuBody: @Composable () -> Unit = {
+        SettingsMenu(
+            scrollState = menuScrollState,
+            themeMode = themeMode,
+            terminalSettings = terminalSettings,
+            memoryEnabled = memoryEnabled,
+            onToggleMemory = { memoryViewModel.setMemoryEnabled(it) },
+            currentLanguageDisplayName = currentLanguageDisplayName,
+            welcomeEntries = welcomeEntries,
+            onOpenWelcomeEntriesSheet = { showWelcomeEntriesSheet = true },
+            onOpenTerminalSettingsSheet = { showTerminalSettingsSheet = true },
+            onOpenLanguageSheet = { showLanguageSheet = true },
+            onOpenManual = {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(USER_GUIDE_DOCS_URL))
+                )
+            },
+            onRerunOnboarding = onRerunOnboarding,
+            pluginPages = pluginPages,
+            onOpenPluginPage = { page ->
+                activePluginPage = page
+                section = SettingsSection.PluginPage
+            },
+            onOpen = {
+                if (it == SettingsSection.Log) {
+                    logReturnSection = SettingsSection.Menu
+                    viewModel.refreshLogs(filterServerName = null)
+                }
+                section = it
+            }
+        )
+    }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        // 大屏：菜单常驻左栏，右栏只换详情，不再整页来回切。
+        if (expanded) {
+            Column(
+                modifier = Modifier
+                    .width(SettingsMenuWidth)
+                    .fillMaxHeight()
+                    .background(settingsPageBackground())
+            ) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.settings_title)) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = settingsPageBackground(),
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                FeatherIcons.ArrowLeft,
+                                contentDescription = stringResource(R.string.common_back)
+                            )
+                        }
+                    }
+                )
+                menuBody()
+            }
+            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+
+        // 过渡期间退场页会向左移出自身区域（sizeTransform 为 null 时 AnimatedContent 不裁剪），
+        // 不夹住就会画到大屏左侧常驻菜单上。
+        Box(modifier = Modifier.weight(1f).clipToBounds()) {
+        // 分区切换走整页过渡（顶栏一起滑），而不是瞬切；方向按层级深度定：进更深一层从右来，返回从左来。
+        AnimatedContent(
+            targetState = section,
+            modifier = Modifier.fillMaxSize(),
+            transitionSpec = {
+                val forward = targetState.depth() >= initialState.depth()
+                // sizeTransform 必须给 null：新旧内容尺寸本就一样，默认的尺寸补间只会让容器裁剪拖影。
+                ContentTransform(pageEnter(forward), pageExit(forward), sizeTransform = null)
+            },
+            label = "settings-section"
+        ) { current ->
+        when {
+            // 这两页自带顶栏，不能嵌进下面的 Scaffold（会双层顶栏）：窄窗占整屏，大屏占右栏。
+            current == SettingsSection.ProviderEditor -> ProviderEditorScreen(
+                viewModel = viewModel,
+                initialProvider = editingProvider,
+                presetPrefill = providerPresetPrefill,
+                initialTab = if (onboardingStep == OnboardingStep.PROVIDER_FETCH_MODELS || onboardingStep == OnboardingStep.SIMULATE_FETCH_DIALOG) 1 else 0,
+                onboardingStep = onboardingStep,
+                onOnboardingModelAdded = onOnboardingModelAdded,
+                onOnboardingDismissFetchDialog = onOnboardingDismissFetchDialog,
+                onNavigateBack = {
+                    section = SettingsSection.Providers
+                    providerPresetPrefill = null
+                },
+                onSave = { provider ->
+                    viewModel.saveProvider(provider)
+                }
+            )
+
+            current == SettingsSection.SkillEditor -> SkillEditorScreen(
+                initial = editingSkill,
+                saveState = skillSaveState,
+                defaultScope = skillImportScope,
+                onSave = { form, scope -> viewModel.saveSkill(form, scope, editingSkill?.name) },
+                onSaved = { savedName ->
+                    viewModel.clearSkillSaveState()
+                    // 从详情页进来的改完回详情页，但得等新快照到位再展示
+                    if (skillEditorReturn == SettingsSection.SkillDetail) {
+                        pendingSkillName = savedName
+                    }
+                    section = skillEditorReturn
+                },
+                onNavigateBack = {
+                    viewModel.clearSkillSaveState()
+                    section = skillEditorReturn
+                }
+            )
+
+            current == SettingsSection.SubAgentEditor -> SubAgentEditorScreen(
+                initial = editingSubAgent,
+                providers = providers,
+                modelMetadata = modelMetadata,
+                availableTools = remember { viewModel.availableToolNames() },
+                saveState = subAgentSaveState,
+                onLoadMetadata = { viewModel.loadAllModelMetadata() },
+                onSave = { form, scope -> viewModel.saveSubAgent(form, scope, editingSubAgent?.name) },
+                onSaved = { savedName ->
+                    viewModel.clearSubAgentSaveState()
+                    // 从详情页进来的改完回详情页，但得等新快照到位再展示
+                    if (subAgentEditorReturn == SettingsSection.SubAgentDetail) {
+                        pendingSubAgentName = savedName
+                    }
+                    section = subAgentEditorReturn
+                },
+                onNavigateBack = {
+                    viewModel.clearSubAgentSaveState()
+                    section = subAgentEditorReturn
+                }
+            )
+
+            current == SettingsSection.PromptEditor -> {
+                val promptsViewModel: com.aiverse.feature.settings.presentation.PromptsViewModel =
+                    androidx.hilt.navigation.compose.hiltViewModel()
+                val promptsState by promptsViewModel.state.collectAsStateWithLifecycle()
+                val number = promptEditTarget?.number
+                val fragment = number?.let { value -> promptsState.fragments.firstOrNull { it.number == value } }
+                PromptEditorScreen(
+                    isNew = number == null,
+                    initialNumber = number ?: 0,
+                    initialTitle = fragment?.title.orEmpty(),
+                    initialDescription = fragment?.description.orEmpty(),
+                    initialContent = fragment?.body.orEmpty(),
+                    initialScope = fragment?.source ?: PromptFragmentSource.GLOBAL,
+                    hasWorkspace = promptsState.hasWorkspace,
+                    onSave = { savedNumber, title, scope, content ->
+                        promptsViewModel.saveFragment(savedNumber, title, scope, content, previousNumber = number)
+                        section = promptEditorReturn
+                    },
+                    onNavigateBack = { section = promptEditorReturn }
+                )
+            }
+
+            current == SettingsSection.RoleEditor -> {
+                val roleEditorViewModel: com.aiverse.feature.settings.presentation.RoleEditorViewModel =
+                    androidx.hilt.navigation.compose.hiltViewModel()
+                RoleEditorScreen(
+                    initial = editingRole,
+                    viewModel = roleEditorViewModel,
+                    onSaved = { _ ->
+                        roleEditorViewModel.clearSaveState()
+                        section = roleEditorReturn
+                    },
+                    onNavigateBack = {
+                        roleEditorViewModel.clearSaveState()
+                        section = roleEditorReturn
+                    }
+                )
+            }
+
+            current == SettingsSection.RemoteServers ->
+                com.aiverse.feature.workspace.presentation.remote.RemoteServerScreen(
+                    onNavigateBack = { section = SettingsSection.Menu }
+                )
+
+            current == SettingsSection.Backup ->
+                BackupScreen(
+                    viewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+                    onNavigateBack = { section = SettingsSection.Menu }
+                )
+
+            current == SettingsSection.PluginPage -> {
+                val page = activePluginPage
+                if (page == null) {
+                    // 移动端退出插件页时 old 分支还在退场动画里，此时 activePluginPage 已清空；
+                    // 不渲染大屏「从左侧选择」占位，避免返回瞬间闪一下空态。
+                    if (expanded) SettingsDetailPlaceholder()
+                } else {
+                    PluginPageHost(
+                        page = page,
+                        languageTag = pluginLanguageTag,
+                        pluginsViewModel = pluginsViewModel,
+                        onClose = {
+                            activePluginPage = null
+                            section = SettingsSection.Menu
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            else -> {
+            // 用分区名接住本页内部的滚动位置等 rememberSaveable 状态，返回时原样恢复（详见 sectionStateHolder）。
+            // 详情页要带上条目身份：换成另一个技能 / 子代理 / 提示词进来，不能继承上一条的滚动位置。
+            val stateKey: String = when (current) {
+                SettingsSection.SkillDetail -> "SkillDetail:${selectedSkill?.name.orEmpty()}"
+                SettingsSection.SubAgentDetail -> "SubAgentDetail:${selectedSubAgent?.name.orEmpty()}"
+                SettingsSection.PromptDetail -> "PromptDetail:${selectedPrompt?.number ?: 0}"
+                SettingsSection.RoleDetail -> "RoleDetail:${selectedRole?.id ?: ""}"
+                else -> current.name
+            }
+            sectionStateHolder.SaveableStateProvider(stateKey) {
+            // 存储页的顶栏刷新按钮与页面内容要共用同一个 ViewModel，故在此分支创建；
+            // 它的构造即触发一次全盘统计，不能提到 SettingsScreen 顶层（那样每次进设置页都会扫盘）。
+            val storageViewModel: com.aiverse.feature.settings.presentation.StorageViewModel? =
+                if (current == SettingsSection.Storage) androidx.hilt.navigation.compose.hiltViewModel() else null
+            Scaffold(
+        containerColor = settingsPageBackground(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = if (current == SettingsSection.SkillDetail) {
+                            selectedSkill?.name ?: stringResource(current.titleRes)
+                        } else if (current == SettingsSection.SubAgentDetail) {
+                            selectedSubAgent?.name ?: stringResource(current.titleRes)
+                        } else if (expanded && current == SettingsSection.Menu) {
+                            // 大屏左栏顶部已经写着「设置」，右栏空态不再重复
+                            ""
+                        } else {
+                            stringResource(current.titleRes)
+                        }
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = settingsPageBackground(),
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                ),
+                navigationIcon = {
+                    // 大屏一级分区页不给返回箭头：左栏菜单随时可切，退出设置的入口在左栏顶部。
+                    if (!expanded || parentSection != null) {
+                        IconButton(onClick = {
+                            val parent = parentSection
+                            if (parent != null) section = parent else onNavigateBack()
+                        }) {
+                            Icon(FeatherIcons.ArrowLeft, contentDescription = stringResource(R.string.common_back))
+                        }
+                    }
+                },
+                actions = {
+                    when (current) {
+                        SettingsSection.Providers -> {
+                            if (providers.isNotEmpty()) {
+                                SelectionToggleAction(selectionFor(SettingsSection.Providers))
+                            }
+                            IconButton(
+                                onClick = {
+                                    providerPresetPrefill = null
+                                    showAddProviderSheet = true
+                                },
+                                modifier = Modifier.onboardingTarget(OnboardingStep.PROVIDER_ADD)
+                            ) {
+                                Icon(FeatherIcons.Plus, contentDescription = stringResource(R.string.settings_add_provider))
+                            }
+                        }
+                        SettingsSection.SearchProvider -> {
+                            IconButton(onClick = { showAddSearchProviderSheet = true }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.search_provider_add),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Mcp -> {
+                            if (mcpEntries.isNotEmpty()) {
+                                SelectionToggleAction(selectionFor(SettingsSection.Mcp))
+                            }
+                            IconButton(onClick = { viewModel.reloadMcp() }) {
+                                if (mcpReloading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        FeatherIcons.RefreshCw,
+                                        contentDescription = stringResource(R.string.settings_reconnect),
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { showMcpAddSheet = true }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.settings_add_mcp_server),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Container -> {
+                            IconButton(onClick = { showContainerAnnouncement = true }) {
+                                Icon(
+                                    FeatherIcons.Info,
+                                    contentDescription = stringResource(R.string.container_announcement_title),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { section = SettingsSection.ContainerDownloads }) {
+                                Icon(
+                                    FeatherIcons.Download,
+                                    contentDescription = stringResource(R.string.container_download_image),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { showContainerAddSheet = true }) {
+                                Icon(FeatherIcons.Plus, contentDescription = stringResource(R.string.container_add_image))
+                            }
+                        }
+                        SettingsSection.ContainerDownloads -> {
+                            if (downloadedImages.isNotEmpty()) {
+                                SelectionToggleAction(selectionFor(SettingsSection.ContainerDownloads))
+                            }
+                            IconButton(onClick = { showImageSourceSheet = true }) {
+                                Icon(
+                                    FeatherIcons.Globe,
+                                    contentDescription = stringResource(R.string.container_download_current_source_title),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Skills -> {
+                            if (skills.isNotEmpty()) {
+                                SelectionToggleAction(selectionFor(SettingsSection.Skills))
+                            }
+                            IconButton(onClick = {
+                                showSkillAddSheet = true
+                            }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.skills_add),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Memory -> {
+                            if (memoryEnabled) {
+                                // 多选入口：顶栏铅笔开关，状态由 [selectionFor] 统一持有。
+                                SelectionToggleAction(selectionFor(SettingsSection.Memory))
+                                // 新建记忆：触发 MemorySection 内部的新建 dialog。
+                                IconButton(onClick = { showMemoryEditor = true }) {
+                                    Icon(
+                                        FeatherIcons.Plus,
+                                        contentDescription = stringResource(R.string.memory_add),
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                        }
+                        SettingsSection.SkillDetail -> selectedSkill?.let { entry ->
+                            Box {
+                                var skillMoreExpanded by remember { mutableStateOf(false) }
+                                IconButton(onClick = { skillMoreExpanded = true }) {
+                                    Icon(
+                                        FeatherIcons.MoreHorizontal,
+                                        contentDescription = stringResource(R.string.common_more),
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = skillMoreExpanded,
+                                    onDismissRequest = { skillMoreExpanded = false }
+                                ) {
+                                    // 编辑：进入技能编辑页（保持原有行为）
+                                    DropdownMenuItem(
+                                        text = { SkillMenuRow(FeatherIcons.Edit2, stringResource(R.string.skills_edit)) },
+                                        onClick = {
+                                            skillMoreExpanded = false
+                                            editingSkill = entry
+                                            skillEditorReturn = SettingsSection.SkillDetail
+                                            section = SettingsSection.SkillEditor
+                                        }
+                                    )
+                                    // 分享：把整个技能目录打包 zip 走系统分享（与批量分享一致，脚本/资源不丢）
+                                    DropdownMenuItem(
+                                        text = { SkillMenuRow(FeatherIcons.Share2, stringResource(R.string.skills_share)) },
+                                        onClick = {
+                                            skillMoreExpanded = false
+                                            shareSkillEntries(listOf(entry))
+                                        }
+                                    )
+                                    // 导出：把技能目录打包 zip，用 SAF 存到本地
+                                    DropdownMenuItem(
+                                        text = { SkillMenuRow(FeatherIcons.Download, stringResource(R.string.skills_export)) },
+                                        onClick = {
+                                            skillMoreExpanded = false
+                                            viewModel.buildSkillExportZip(listOf(entry.name to entry.scope)) { bytes ->
+                                                if (bytes == null) {
+                                                    Toast.makeText(context, context.getString(R.string.skills_export_failed), Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    skillShareExport.exportZip(bytes, "${entry.name}.zip") { ok ->
+                                                        Toast.makeText(
+                                                            context,
+                                                            context.getString(if (ok) R.string.skills_export_success else R.string.skills_export_failed),
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        SettingsSection.SubAgents -> {
+                            if (subAgents.isNotEmpty()) {
+                                SelectionToggleAction(selectionFor(SettingsSection.SubAgents))
+                            }
+                            IconButton(onClick = {
+                                editingSubAgent = null
+                                subAgentEditorReturn = SettingsSection.SubAgents
+                                section = SettingsSection.SubAgentEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.subagent_add),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.SubAgentDetail -> selectedSubAgent?.let { entry ->
+                            IconButton(onClick = {
+                                editingSubAgent = entry
+                                subAgentEditorReturn = SettingsSection.SubAgentDetail
+                                section = SettingsSection.SubAgentEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Edit2,
+                                    contentDescription = stringResource(R.string.subagent_edit),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Log -> {
+                            IconButton(onClick = { viewModel.refreshLogs() }) {
+                                Icon(FeatherIcons.RefreshCw, contentDescription = stringResource(R.string.settings_refresh_logs))
+                            }
+                        }
+                        SettingsSection.TokenStats -> {
+                            IconButton(onClick = { showResetTokenStats = true }) {
+                                Icon(
+                                    FeatherIcons.Trash2,
+                                    contentDescription = stringResource(R.string.settings_token_stats_reset),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Plugins,
+                        SettingsSection.PluginRepo -> {
+                            // 插件分区单条顶栏：共享「＋」导入与「⚙」设置（触发逻辑由 PluginSettingsSection 上报）。
+                            IconButton(onClick = { pluginImportTrigger?.invoke() }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.plugins_install),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { pluginSettingsTrigger?.invoke() }) {
+                                Icon(
+                                    FeatherIcons.Settings,
+                                    contentDescription = stringResource(R.string.plugins_settings_title),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Prompts -> {
+                            // 多选：批量删除自定义提示词（本地/内置来源只读、不可勾选）。
+                            // 片段全部来自只读层（如未自定义时的全「本地」）时置灰开关——进多选也无项可勾。
+                            val promptsViewModel: com.aiverse.feature.settings.presentation.PromptsViewModel =
+                                androidx.hilt.navigation.compose.hiltViewModel()
+                            val promptsState by promptsViewModel.state.collectAsStateWithLifecycle()
+                            SelectionToggleAction(
+                                selectionFor(SettingsSection.Prompts),
+                                enabled = promptsState.fragments.any { it.editable }
+                            )
+                            // 帮助入口只保留这一个：原来「+」弹层里的帮助项与它重复，弹层已去掉。
+                            IconButton(onClick = { showPromptsAnnouncement = true }) {
+                                Icon(
+                                    FeatherIcons.Info,
+                                    contentDescription = stringResource(R.string.prompts_help),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            // 重置：清空自定义提示词，各编号回落到内置（排在「+」左侧）。
+                            IconButton(onClick = { showResetPrompts = true }) {
+                                Icon(
+                                    FeatherIcons.RotateCcw,
+                                    contentDescription = stringResource(R.string.prompts_reset_custom),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            // 「+」直接进新建页，不再弹方式选择。
+                            IconButton(onClick = {
+                                promptEditTarget = PromptEditTarget(null)
+                                promptEditorReturn = SettingsSection.Prompts
+                                section = SettingsSection.PromptEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.prompts_add_prompt),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.PromptDetail -> selectedPrompt?.let { fragment ->
+                            IconButton(onClick = {
+                                promptEditTarget = PromptEditTarget(fragment.number)
+                                promptEditorReturn = SettingsSection.PromptDetail
+                                section = SettingsSection.PromptEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Edit2,
+                                    contentDescription = stringResource(R.string.subagent_edit),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Roles -> {
+                            val rolesViewModel: com.aiverse.feature.settings.presentation.RolesViewModel =
+                                androidx.hilt.navigation.compose.hiltViewModel()
+                            val rolesState by rolesViewModel.state.collectAsStateWithLifecycle()
+                            if (rolesState.roles.any { !it.isBuiltin }) {
+                                SelectionToggleAction(selectionFor(SettingsSection.Roles))
+                            }
+                            IconButton(onClick = {
+                                editingRole = null
+                                roleEditorReturn = SettingsSection.Roles
+                                section = SettingsSection.RoleEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Plus,
+                                    contentDescription = stringResource(R.string.roles_add),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.RoleDetail -> selectedRole?.let { role ->
+                            IconButton(onClick = {
+                                editingRole = role
+                                roleEditorReturn = SettingsSection.RoleDetail
+                                section = SettingsSection.RoleEditor
+                            }) {
+                                Icon(
+                                    FeatherIcons.Edit2,
+                                    contentDescription = stringResource(R.string.roles_editor_edit),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        SettingsSection.Storage -> {
+                            IconButton(onClick = { storageViewModel?.refresh() }) {
+                                Icon(
+                                    FeatherIcons.RefreshCw,
+                                    contentDescription = stringResource(R.string.storage_refresh),
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (current) {
+                // 大屏菜单已常驻左栏，右栏在没选中分区时给个占位提示
+                SettingsSection.Menu -> if (expanded) SettingsDetailPlaceholder() else menuBody()
+                SettingsSection.General -> GeneralSettingsSection(
+                    autoRemoveStaleModels = autoRemoveStaleModels,
+                    onToggleAutoRemoveStaleModels = { viewModel.setAutoRemoveStaleModels(it) },
+                    startupSessionMode = startupSessionMode,
+                    onSelectStartupSessionMode = { viewModel.setStartupSessionMode(it) },
+                    firstByteTimeoutSec = firstByteTimeoutSec,
+                    onSetFirstByteTimeoutSec = { viewModel.setFirstByteTimeoutSec(it) },
+                    streamIdleTimeoutSec = streamIdleTimeoutSec,
+                    onSetStreamIdleTimeoutSec = { viewModel.setStreamIdleTimeoutSec(it) },
+                    maxNetworkRetries = maxNetworkRetries,
+                    onSetMaxNetworkRetries = { viewModel.setMaxNetworkRetries(it) },
+                    maxSubagentRunning = maxSubagentRunning,
+                    onSetMaxSubagentRunning = { viewModel.setMaxSubagentRunning(it) },
+                    enterToSend = enterToSend,
+                    onToggleEnterToSend = { viewModel.setEnterToSend(it) },
+                    autoExpandReasoning = autoExpandReasoning,
+                    onToggleAutoExpandReasoning = { viewModel.setAutoExpandReasoning(it) },
+                    compactionThresholdPercent = compactionThresholdPercent,
+                    onSetCompactionThresholdPercent = { viewModel.setCompactionThresholdPercent(it) },
+                    sendFileMaxSizeMb = sendFileMaxSizeMb,
+                    onSetSendFileMaxSizeMb = { viewModel.setSendFileMaxSizeMb(it) },
+                    goalMaxTurns = goalMaxTurns,
+                    onSetGoalMaxTurns = { viewModel.setGoalMaxTurns(it) },
+                    goalMaxTokens = goalMaxTokens,
+                    onSetGoalMaxTokens = { viewModel.setGoalMaxTokens(it) },
+                    deleteExternalWorkspaceSessions = deleteExternalWorkspaceSessions,
+                    onToggleDeleteExternalWorkspaceSessions = { viewModel.setDeleteExternalWorkspaceSessions(it) },
+                    mcpLazyTools = mcpLazyTools,
+                    onToggleMcpLazyTools = { viewModel.setMcpLazyTools(it) }
+                )
+                SettingsSection.Appearance -> AppearanceSettingsSection(
+                    themeMode = themeMode,
+                    themePresetId = themePresetId,
+                    dynamicColorEnabled = dynamicColorEnabled,
+                    userBubbleStyle = userBubbleStyle,
+                    assistantBubbleStyle = assistantBubbleStyle,
+                    backgroundImagePath = backgroundImagePath,
+                    backgroundMask = backgroundAlpha,
+                    backgroundMode = backgroundMode,
+                    chatFontSizeSp = chatFontSizeSp,
+                    inputFontSizeSp = inputFontSizeSp,
+                    uiFontScale = uiFontScale,
+                    uiDensity = uiDensity,
+                    uiFontPath = uiFontPath,
+                    fileTreePrefs = fileTreeDisplayPrefs,
+                    codeFontSizeSp = codeFontSizeSp,
+                    codeWrapEnabled = codeWrapEnabled,
+                    codeAutoFoldEnabled = codeAutoFoldEnabled,
+                    codeShowLineNumber = codeShowLineNumber,
+                    userBubbleOpacity = userBubbleOpacity,
+                    assistantBubbleOpacity = assistantBubbleOpacity,
+                    onSetFileNameDisplay = { viewModel.setFileNameDisplay(it) },
+                    onSetShowHiddenFiles = { viewModel.setShowHiddenFiles(it) },
+                    onSetFileIndentDensity = { viewModel.setFileIndentDensity(it) },
+                    onSetFileMutedColoring = { viewModel.setFileMutedColoring(it) },
+                    onOpenThemeSheet = { showThemeSheet = true },
+                    onOpenBackgroundSheet = { showBackgroundSheet = true },
+                    onOpenUserBubbleStyleSheet = { showUserBubbleStyleSheet = true },
+                    onOpenAssistantBubbleStyleSheet = { showAssistantBubbleStyleSheet = true },
+                    onSetChatFontSizeSp = { viewModel.setChatFontSizeSp(it) },
+                    onSetInputFontSizeSp = { viewModel.setInputFontSizeSp(it) },
+                    onSetUiFontScale = { viewModel.setUiFontScale(it) },
+                    onSetUiDensity = { viewModel.setUiDensity(it) },
+                    onOpenDensity = { section = SettingsSection.AppearanceDensity },
+                    onOpenCorner = { section = SettingsSection.AppearanceCorner },
+                    onOpenUiFont = { section = SettingsSection.AppearanceFont },
+                    onSetCodeFontSizeSp = { viewModel.setCodeFontSizeSp(it) },
+                    onSetCodeWrapEnabled = { viewModel.setCodeWrapEnabled(it) },
+                    onSetCodeAutoFoldEnabled = { viewModel.setCodeAutoFoldEnabled(it) },
+                    onSetCodeShowLineNumber = { viewModel.setCodeShowLineNumber(it) },
+                    onSetUserBubbleOpacity = { viewModel.setUserBubbleOpacity(it) },
+                    onSetAssistantBubbleOpacity = { viewModel.setAssistantBubbleOpacity(it) },
+                    onRestoreDefaults = { viewModel.restoreAppearanceDefaults() },
+                    onExportRequest = { exportRequest++ },
+                    exportedThemeJson = exportedThemeJson,
+                    onImportThemePackage = { json ->
+                        viewModel.importThemePackage(json) { success ->
+                            val message = if (success) {
+                                R.string.settings_appearance_theme_package_applied
+                            } else {
+                                R.string.settings_appearance_theme_package_parse_failed
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    inputBarPrefs = inputBarPrefs,
+                    onInputBarPrefsChange = { viewModel.updateInputBarPrefs(it) }
+                )
+                SettingsSection.AppearanceDensity -> DensitySettingsSection(
+                    uiDensity = uiDensity,
+                    onSetUiDensity = { viewModel.setUiDensity(it) }
+                )
+                SettingsSection.AppearanceCorner -> CornerRadiusSettingsSection(
+                    cardCorner = cardCorner,
+                    buttonCorner = buttonCorner,
+                    fieldCorner = fieldCorner,
+                    bubbleCorner = bubbleCorner,
+                    imageCorner = imageCorner,
+                    onSetCardCorner = { viewModel.setCardCorner(it) },
+                    onSetButtonCorner = { viewModel.setButtonCorner(it) },
+                    onSetFieldCorner = { viewModel.setFieldCorner(it) },
+                    onSetBubbleCorner = { viewModel.setBubbleCorner(it) },
+                    onSetImageCorner = { viewModel.setImageCorner(it) }
+                )
+                SettingsSection.AppearanceFont -> UiFontSettingsSection(
+                    currentPath = uiFontPath,
+                    onSetUiFont = { viewModel.setUiFontPath(it) }
+                )
+                SettingsSection.Providers -> ProvidersSection(
+                    providers = providers,
+                    selection = selectionFor(SettingsSection.Providers),
+                    onEdit = {
+                        editingProvider = it
+                        section = SettingsSection.ProviderEditor
+                    },
+                    onDelete = { viewModel.deleteProvider(it.id) },
+                    onReorder = { fromIndex, toIndex ->
+                        viewModel.reorderProviders(fromIndex, toIndex)
+                    },
+                    onBatchDelete = { ids -> viewModel.deleteProviders(ids) },
+                    onBatchSetEnabled = { ids, enabled -> viewModel.setProvidersEnabled(ids, enabled) }
+                )
+                SettingsSection.DefaultModels -> DefaultModelsSection(
+                    providers = providers,
+                    visionProviderId = visionProviderId,
+                    visionModel = visionModel,
+                    compactionProviderId = compactionProviderId,
+                    compactionModel = compactionModel,
+                    titleProviderId = titleProviderId,
+                    titleModel = titleModel,
+                    optimizeProviderId = optimizeProviderId,
+                    optimizeModel = optimizeModel,
+                    imageGenProviderId = imageGenProviderId,
+                    imageGenModel = imageGenModel,
+                    subagentTierSelections = subagentTierSelections,
+                    modelMetadata = modelMetadata,
+                    onLoadMetadata = { viewModel.loadAllModelMetadata() },
+                    onSelectVisionModel = { pid, m -> viewModel.setVisionModel(pid, m) },
+                    onClearVisionModel = { viewModel.clearVisionModel() },
+                    onSelectCompactionModel = { pid, m -> viewModel.setCompactionModel(pid, m) },
+                    onClearCompactionModel = { viewModel.clearCompactionModel() },
+                    onSelectTitleModel = { pid, m -> viewModel.setTitleModel(pid, m) },
+                    onClearTitleModel = { viewModel.clearTitleModel() },
+                    onSelectOptimizeModel = { pid, m -> viewModel.setOptimizeInputModel(pid, m) },
+                    onClearOptimizeModel = { viewModel.clearOptimizeInputModel() },
+                    onSelectImageGenModel = { pid, m -> viewModel.setImageGenModel(pid, m) },
+                    onClearImageGenModel = { viewModel.clearImageGenModel() },
+                    onSelectSubagentTierModel = { tier, pid, m -> viewModel.setSubagentTierModel(tier, pid, m) },
+                    onClearSubagentTierModel = { tier -> viewModel.clearSubagentTier(tier) }
+                )
+                SettingsSection.Mcp -> McpSection(
+                    entries = mcpEntries,
+                    statuses = mcpStatuses,
+                    reloading = mcpReloading,
+                    selection = selectionFor(SettingsSection.Mcp),
+                    onReload = { viewModel.reloadMcp() },
+                    onToggle = { name, enabled, scope -> viewModel.setMcpServerEnabled(name, enabled, scope) },
+                    onEdit = {
+                        editingMcp = it
+                        showMcpDialog = true
+                    },
+                    onDelete = { name, scope -> viewModel.deleteMcpServer(name, scope) },
+                    onBatchDelete = { targets -> viewModel.deleteMcpServers(targets) },
+                    onBatchSetEnabled = { targets, enabled -> viewModel.setMcpServersEnabled(targets, enabled) },
+                    onBatchReconnect = { names -> viewModel.reconnectMcpServers(names) }
+                )
+                SettingsSection.Skills -> SkillsSection(
+                    projectName = currentProjectName,
+                    entries = skills,
+                    selection = selectionFor(SettingsSection.Skills),
+                    deletingInProgress = skillDeleting.isNotEmpty(),
+                    onDelete = { skillToDelete = it },
+                    onOpenDetail = {
+                        selectionFor(SettingsSection.Skills).exit()
+                        selectedSkill = it
+                        section = SettingsSection.SkillDetail
+                    },
+                    onBatchDelete = { targets ->
+                        viewModel.deleteSkills(targets.map { it.name to it.scope })
+                    },
+                    onBatchSetEnabled = { targets, enabled ->
+                        viewModel.setSkillsEnabled(targets.map { it.name to it.scope }, enabled)
+                    },
+                    onBatchShare = { targets -> shareSkillEntries(targets) },
+                    onBatchExport = { targets -> exportSkillEntries(targets) },
+                    defaultSkillInstallScope = defaultSkillInstallScope,
+                    onSetDefaultSkillInstallScope = { viewModel.setDefaultSkillInstallScope(it) }
+                )
+                SettingsSection.Prompts -> {
+                    val promptsViewModel: com.aiverse.feature.settings.presentation.PromptsViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    val promptsState by promptsViewModel.state.collectAsStateWithLifecycle()
+                    LaunchedEffect(Unit) { promptsViewModel.refresh() }
+                    PromptsSection(
+                        state = promptsState,
+                        selection = selectionFor(SettingsSection.Prompts),
+                        onOpenFragment = { fragment ->
+                            selectionFor(SettingsSection.Prompts).exit()
+                            selectedPrompt = fragment
+                            section = SettingsSection.PromptDetail
+                        },
+                        onDeleteFragment = promptsViewModel::deleteFragment,
+                        onReorder = promptsViewModel::reorderFragments,
+                        onToggleBuiltinDisabled = promptsViewModel::setBuiltinDisabled,
+                        onToggleFragmentEnabled = promptsViewModel::setFragmentEnabled,
+                        onBatchDeleteFragments = promptsViewModel::deleteFragments
+                    )
+                    if (showResetPrompts) {
+                        AlertDialog(
+                            onDismissRequest = { showResetPrompts = false },
+                            title = { Text(stringResource(R.string.prompts_reset_custom)) },
+                            text = { Text(stringResource(R.string.prompts_reset_confirm)) },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    promptsViewModel.resetCustomFragments()
+                                    showResetPrompts = false
+                                }) { Text(stringResource(R.string.common_reset)) }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showResetPrompts = false }) {
+                                    Text(stringResource(R.string.common_cancel))
+                                }
+                            }
+                        )
+                    }
+                }
+                SettingsSection.PromptDetail -> {
+                    val promptsViewModel: com.aiverse.feature.settings.presentation.PromptsViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    val promptsState by promptsViewModel.state.collectAsStateWithLifecycle()
+                    selectedPrompt?.let { sel ->
+                        promptsState.fragments.firstOrNull { it.number == sel.number }?.let { fragment ->
+                            PromptDetailSection(fragment = fragment)
+                        }
+                    }
+                }
+                SettingsSection.Roles -> {
+                    val rolesViewModel: com.aiverse.feature.settings.presentation.RolesViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    val rolesState by rolesViewModel.state.collectAsStateWithLifecycle()
+                    RolesSection(
+                        roles = rolesState.roles,
+                        selection = selectionFor(SettingsSection.Roles),
+                        onOpenDetail = { role ->
+                            selectionFor(SettingsSection.Roles).exit()
+                            selectedRole = role
+                            section = SettingsSection.RoleDetail
+                        },
+                        onDelete = rolesViewModel::delete,
+                        onToggleEnabled = rolesViewModel::setEnabled,
+                        onBatchDelete = rolesViewModel::deleteByIds,
+                        onBatchSetEnabled = rolesViewModel::setEnabledBatch
+                    )
+                }
+                SettingsSection.RoleDetail -> {
+                    val rolesViewModel: com.aiverse.feature.settings.presentation.RolesViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    val rolesState by rolesViewModel.state.collectAsStateWithLifecycle()
+                    selectedRole?.let { sel ->
+                        // 编辑/启停后列表实时刷新，详情优先展示最新快照，避免停留在保存前的旧值。
+                        val fresh = rolesState.roles.firstOrNull { it.id == sel.id } ?: sel
+                        LaunchedEffect(fresh.id, fresh.updatedAt) { selectedRole = fresh }
+                        RoleDetailSection(role = fresh)
+                    }
+                }
+                SettingsSection.PromptEditor -> Unit
+                SettingsSection.RoleEditor -> Unit
+                SettingsSection.SkillDetail -> selectedSkill?.let { entry ->
+                    SkillDetailSection(
+                        entry = entry,
+                        cache = skillMarkdownCache,
+                        onToggle = { enabled ->
+                            viewModel.setSkillEnabled(entry.name, enabled, entry.scope)
+                            // 同步更新详情页快照，开关立即响应
+                            selectedSkill = selectedSkill?.copy(disabled = !enabled)
+                        }
+                    )
+                }
+                SettingsSection.SubAgents -> SubAgentsSection(
+                    projectName = currentProjectName,
+                    entries = subAgents,
+                    selection = selectionFor(SettingsSection.SubAgents),
+                    deletingInProgress = subAgentDeleting.isNotEmpty(),
+                    onDelete = { subAgentToDelete = it },
+                    onOpenDetail = {
+                        selectionFor(SettingsSection.SubAgents).exit()
+                        selectedSubAgent = it
+                        section = SettingsSection.SubAgentDetail
+                    },
+                    onBatchDelete = { targets ->
+                        viewModel.deleteSubAgents(targets.map { it.name to it.scope })
+                    },
+                    onBatchSetEnabled = { targets, enabled ->
+                        viewModel.setSubAgentsEnabled(targets.map { it.name to it.scope }, enabled)
+                    }
+                )
+                SettingsSection.SubAgentDetail -> selectedSubAgent?.let { entry ->
+                    SubAgentDetailSection(
+                        entry = entry,
+                        cache = subAgentMarkdownCache,
+                        onToggle = { enabled ->
+                            viewModel.setSubAgentEnabled(entry.name, enabled, entry.scope)
+                            // 同步更新详情页快照，开关立即响应
+                            selectedSubAgent = selectedSubAgent?.copy(disabled = !enabled)
+                        }
+                    )
+                }
+                SettingsSection.Container -> ContainerSection(
+                    profiles = containerProfiles,
+                    activeProfileId = activeProfileId,
+                    defaultContainerId = defaultContainerId,
+                    osMap = containerOsMap,
+                    showAddSheetExternal = showContainerAddSheet,
+                    onDismissAddSheet = { showContainerAddSheet = false },
+                    onSelect = { viewModel.setActiveContainerProfile(it) },
+                    onSetDefaultContainer = { viewModel.setDefaultContainerId(it) },
+                    onSaveCustom = { viewModel.saveCustomContainerProfile(it) },
+                    onEditCustom = { viewModel.editCustomContainerProfile(it) },
+                    onDeleteProfile = { viewModel.deleteContainerProfile(it) },
+                    onSwitchConfirmed = onStopAllAndCloseTerminal,
+                    onResetProfile = { profile ->
+                        // 重置与切换容器同等破坏性：rootfs 整体删掉，AI 会话与终端标签必须全部停掉，
+                        // 否则它们会继续读写正在被删的目录。
+                        onStopAllAndCloseTerminal()
+                        viewModel.resetContainer(profile)
+                    },
+                    resetState = containerReset,
+                    onRestoreBuiltin = { viewModel.restoreBuiltinAlpine() },
+                    remoteConnections = remoteConnections,
+                    onReorder = { fromIndex, toIndex ->
+                        viewModel.reorderContainerProfiles(fromIndex, toIndex)
+                    }
+                )
+                SettingsSection.ContainerDownloads -> ContainerImageDownloadSection(
+                    catalog = imageCatalog,
+                    imageVersions = imageVersions,
+                    state = imageDownload,
+                    downloadedImages = downloadedImages,
+                    sourceUnavailableIds = sourceUnavailableIds,
+                    selectedSourceName = viewModel.sourceDisplayName(selectedImageSource, languageTag),
+                    selection = selectionFor(SettingsSection.ContainerDownloads),
+                    onDownload = { entry -> viewModel.startContainerImageDownload(entry, selectedImageSource) },
+                    onCancel = { viewModel.cancelContainerImageDownload() },
+                    onImport = { entryId, fileUri -> viewModel.importDownloadedImage(entryId, fileUri) },
+                    onDelete = { entryId -> viewModel.deleteDownloadedImage(entryId) },
+                    onBatchDelete = { ids -> viewModel.deleteDownloadedImages(ids) }
+                )
+                SettingsSection.Proxy -> ProxySection(
+                    config = proxyConfig,
+                    testState = proxyTestState,
+                    onTestProxy = viewModel::testProxy,
+                    onSetEnabled = viewModel::setProxyEnabled,
+                    onSetType = viewModel::setProxyType,
+                    onSetHost = viewModel::setProxyHost,
+                    onSetPort = viewModel::setProxyPort,
+                    onSetUsername = viewModel::setProxyUsername,
+                    onSetPassword = viewModel::setProxyPassword,
+                    onSetNoProxy = viewModel::setProxyNoProxy
+                )
+                SettingsSection.Log -> LogSection(
+                    current = logLevel,
+                    onSelect = { viewModel.setLogLevel(it) },
+                    state = logViewerState,
+                    onSelectFile = { viewModel.selectLogFile(it) },
+                    onClearFilter = { viewModel.refreshLogs(filterServerName = null) },
+                    onRefresh = { viewModel.refreshLogs(silent = true) }
+                )
+                SettingsSection.Permissions -> PermissionsSection(
+                    projectName = currentProjectName,
+                    projectRules = projectRules,
+                    globalRules = globalRules,
+                    disableSafetyInterception = disableSafetyInterception,
+                    onToggleSafetyInterception = { viewModel.setDisableSafetyInterception(it) },
+                    globalAutoApprove = globalAutoApprove,
+                    onToggleGlobalAutoApprove = { viewModel.setGlobalAutoApprove(it) },
+                    onDeleteProject = { viewModel.deleteProjectRule(it) },
+                    onPromote = { viewModel.promoteRuleToGlobal(it) },
+                    onDeleteGlobal = { viewModel.deleteGlobalRule(it) }
+                )
+                SettingsSection.AppPermissions -> {
+                    val shizukuViewModel: ShizukuViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    val shizukuState by shizukuViewModel.state.collectAsStateWithLifecycle()
+                    AppPermissionsSection(
+                        shizukuState = shizukuState,
+                        onRequestShizukuPermission = { shizukuViewModel.requestPermission() },
+                        onOpenShizuku = { shizukuViewModel.openShizukuApp() },
+                        onRefreshShizuku = { shizukuViewModel.refresh() },
+                        overlayBallEnabled = overlayBallEnabled,
+                        onToggleOverlayBall = { viewModel.setOverlayBallEnabled(it) },
+                        onOpenPhoneControlAccessibility = {
+                            phoneControlGrantReturn = SettingsSection.AppPermissions
+                            section = SettingsSection.PhoneControlAccessibilityGrant
+                        }
+                    )
+                }
+                SettingsSection.PhoneControl -> {
+                    val phoneControlViewModel: PhoneControlViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    PhoneControlScreen(
+                        viewModel = phoneControlViewModel,
+                        onOpenAccessibilityGrant = {
+                            phoneControlGrantReturn = SettingsSection.PhoneControl
+                            section = SettingsSection.PhoneControlAccessibilityGrant
+                        },
+                        onOpenUnlock = { section = SettingsSection.PhoneControlUnlock },
+                        onOpenAppRules = { section = SettingsSection.PhoneControlAppRules }
+                    )
+                }
+                SettingsSection.PhoneControlAccessibilityGrant -> {
+                    val phoneControlViewModel: PhoneControlViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    AccessibilityGrantScreen(
+                        viewModel = phoneControlViewModel,
+                        onBack = { section = phoneControlGrantReturn }
+                    )
+                }
+                SettingsSection.PhoneControlUnlock -> {
+                    val phoneControlViewModel: PhoneControlViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    UnlockScreen(
+                        viewModel = phoneControlViewModel,
+                        onBack = { section = SettingsSection.PhoneControl }
+                    )
+                }
+                SettingsSection.PhoneControlAppRules -> {
+                    val phoneControlViewModel: PhoneControlViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    AppRulesScreen(
+                        viewModel = phoneControlViewModel,
+                        onBack = { section = SettingsSection.PhoneControl }
+                    )
+                }
+                SettingsSection.BackgroundRun -> BackgroundRunSection(
+                    keepaliveEnabled = keepaliveEnabled,
+                    onToggleKeepalive = { viewModel.setKeepaliveEnabled(it) },
+                    screenOnEnabled = screenOnEnabled,
+                    onToggleScreenOn = { viewModel.setScreenOnEnabled(it) },
+                    agentSoundEnabled = agentSoundEnabled,
+                    onToggleAgentSound = { viewModel.setAgentSoundEnabled(it) },
+                    liveNotificationEnabled = liveNotificationEnabled,
+                    onToggleLiveNotification = { viewModel.setLiveNotificationEnabled(it) },
+                    approvalNotificationEnabled = approvalNotificationEnabled,
+                    onToggleApprovalNotification = { viewModel.setApprovalNotificationEnabled(it) }
+                )
+                SettingsSection.TokenStats -> TokenStatsSection(
+                    state = tokenStats,
+                    onSelectPeriod = { viewModel.setTokenStatsPeriod(it) },
+                    onSelectPage = { viewModel.setTokenStatsPage(it) },
+                    onSelectProviderPage = { viewModel.setProviderStatsPage(it) },
+                    onSelectModelPage = { viewModel.setModelStatsPage(it) },
+                    onSelectFilterProvider = { viewModel.setFilterProviderId(it) },
+                    onSelectFilterModel = { viewModel.setFilterModel(it) },
+                    onClearFilters = { viewModel.clearTokenStatsFilters() }
+                )
+                SettingsSection.WebServer -> WebServerSettingsSection(
+                    androidx.hilt.navigation.compose.hiltViewModel()
+                )
+                SettingsSection.Storage -> storageViewModel?.let { StorageSectionHost(viewModel = it) }
+                SettingsSection.ProviderEditor -> {} // 已在上方 early return 处理
+                SettingsSection.SkillEditor -> {} // 已在上方 early return 处理
+                SettingsSection.SubAgentEditor -> {} // 已在上方 early return 处理
+                SettingsSection.RemoteServers -> {} // 已在上方 early return 处理
+                SettingsSection.Backup -> {} // 已在上方 early return 处理
+                SettingsSection.Memory -> {
+                    // 防御：记忆开关关闭时该入口行已整行隐藏，此处兜底不渲染记忆管理内容。
+                    if (memoryEnabled) {
+                        MemorySection(
+                            viewModel = memoryViewModel,
+                            selection = selectionFor(SettingsSection.Memory),
+                            showMemoryEditor = showMemoryEditor,
+                            onConsumeAddNew = { showMemoryEditor = false }
+                        )
+                    }
+                }
+                SettingsSection.PluginPage -> {
+                    val page = activePluginPage
+                    if (page != null) {
+                        PluginPageHost(
+                            page = page,
+                            languageTag = pluginLanguageTag,
+                            pluginsViewModel = pluginsViewModel,
+                            onClose = {
+                                activePluginPage = null
+                                section = SettingsSection.Menu
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (expanded) {
+                        SettingsDetailPlaceholder()
+                    }
+                }
+                SettingsSection.Plugins -> PluginSettingsSection(
+                    onImport = { pluginImportTrigger = it },
+                    onOpenSettings = { pluginSettingsTrigger = it }
+                )
+                SettingsSection.PluginRepo -> PluginSettingsSection(
+                    onImport = { pluginImportTrigger = it },
+                    onOpenSettings = { pluginSettingsTrigger = it }
+                )
+                SettingsSection.SearchProvider -> {
+                    val searchVm: com.aiverse.feature.search.presentation.SearchProviderViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    SearchProviderSection(
+                        viewModel = searchVm,
+                        onEdit = { id ->
+                            selectedSearchServiceId = id
+                            section = SettingsSection.SearchProviderDetail
+                        },
+                        showAddSheet = showAddSearchProviderSheet,
+                        onDismissAddSheet = { showAddSearchProviderSheet = false }
+                    )
+                }
+                SettingsSection.SearchProviderDetail -> {
+                    val searchVm: com.aiverse.feature.search.presentation.SearchProviderViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    SearchProviderDetailSection(
+                        viewModel = searchVm,
+                        serviceId = selectedSearchServiceId
+                    )
+                }
+                SettingsSection.Tts -> {
+                    val ttsViewModel: com.aiverse.feature.settings.presentation.TtsSettingsViewModel =
+                        androidx.hilt.navigation.compose.hiltViewModel()
+                    TtsSettingsSection(viewModel = ttsViewModel)
+                }
+                SettingsSection.About -> AboutSection(
+                    updateCheckEnabled = updateCheckEnabled,
+                    updateCheckChannel = updateCheckChannel,
+                    updateCheckMirror = updateCheckMirror,
+                    onToggleUpdateCheck = { viewModel.setUpdateCheckEnabled(it) },
+                    onSelectChannel = { viewModel.setUpdateCheckChannel(it) },
+                    onSelectMirror = { viewModel.setUpdateCheckMirror(it) },
+                    onCheckUpdate = { viewModel.checkUpdate(manual = true) },
+                    isTestPackage = viewModel.isTestPackage
+                )
+            }
+        }
+    }
+        } // SaveableStateProvider 结束
+        } // else 分支结束（storageViewModel 作用域）
+        } // 详情区 when 结束
+        } // AnimatedContent 结束
+        } // 右栏结束
+    } // Row 结束
+
+    if (showMcpAddSheet) {
+        McpAddSheet(
+            scope = mcpAddScope,
+            onScopeChange = { mcpAddScope = it },
+            onManual = {
+                showMcpAddSheet = false
+                editingMcp = null
+                showMcpDialog = true
+            },
+            onImportJson = {
+                showMcpAddSheet = false
+                showMcpJsonImport = true
+            },
+            onDismiss = { showMcpAddSheet = false }
+        )
+    }
+
+
+    if (showMcpJsonImport) {
+        LaunchedEffect(mcpImportState.importedCount) {
+            if (mcpImportState.importedCount != null) {
+                showMcpJsonImport = false
+                viewModel.clearMcpImportState()
+            }
+        }
+        McpJsonImportDialog(
+            inProgress = mcpImportState.inProgress,
+            error = mcpImportState.error,
+            onDismiss = {
+                showMcpJsonImport = false
+                viewModel.clearMcpImportState()
+            },
+            onConfirm = { json -> viewModel.importMcpServersFromJson(json, mcpAddScope) }
+        )
+    }
+
+    if (showMcpDialog) {
+        McpServerEditDialog(
+            initial = editingMcp?.server,
+            initialScope = editingMcp?.scope,
+            tools = viewModel.getMcpServerTools(editingMcp?.server?.name),
+            authState = mcpAuthState,
+            needsAuth = mcpStatuses.firstOrNull { it.name == editingMcp?.server?.name }
+                ?.state == McpServerStatus.State.NEEDS_AUTH,
+            connected = mcpStatuses.firstOrNull { it.name == editingMcp?.server?.name }
+                ?.state == McpServerStatus.State.CONNECTED,
+            onRefreshTools = { editingMcp?.let { viewModel.reloadMcpServer(it.server.name) } },
+            onOpenLogs = editingMcp?.let { existing ->
+                {
+                    showMcpDialog = false
+                    logReturnSection = SettingsSection.Mcp
+                    viewModel.refreshLogs(filterServerName = existing.server.name)
+                    section = SettingsSection.Log
+                }
+            },
+            onAuthorize = { config, scope ->
+                viewModel.saveAndAuthorizeMcpServer(editingMcp?.server?.name, editingMcp?.scope, config, scope)
+            },
+            onLogout = { viewModel.logoutMcpServer(it) },
+            onCancel = { viewModel.cancelMcpAuthorize(it) },
+            onDismiss = {
+                showMcpDialog = false
+                viewModel.clearMcpAuthState()
+            },
+            onSave = { config, scope ->
+                viewModel.upsertMcpServer(editingMcp?.server?.name, editingMcp?.scope, config, scope)
+                showMcpDialog = false
+            }
+        )
+    }
+
+    if (showAddProviderSheet) {
+        ProviderPresetSheet(
+            onDismiss = { showAddProviderSheet = false },
+            onSelectCustom = {
+                showAddProviderSheet = false
+                editingProvider = null
+                providerPresetPrefill = null
+                section = SettingsSection.ProviderEditor
+            },
+            onSelectOfficial = { preset ->
+                showAddProviderSheet = false
+                editingProvider = null
+                providerPresetPrefill = preset
+                section = SettingsSection.ProviderEditor
+            }
+        )
+    }
+
+    if (showSkillAddSheet) {
+        SkillAddSheet(
+            scope = skillImportScope,
+            onScopeChange = { skillImportScope = it },
+            onManual = {
+                showSkillAddSheet = false
+                editingSkill = null
+                skillEditorReturn = SettingsSection.Skills
+                section = SettingsSection.SkillEditor
+            },
+            onPickFile = {
+                showSkillAddSheet = false
+                skillFileLauncher.launch(arrayOf("text/*", "application/octet-stream"))
+            },
+            onPickZip = {
+                showSkillAddSheet = false
+                skillZipLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+            },
+            onPickGithub = {
+                showSkillAddSheet = false
+                showGithubSkillDialog = true
+            },
+            onDismiss = { showSkillAddSheet = false }
+        )
+    }
+
+    if (showGithubSkillDialog) {
+        GithubSkillImportDialog(
+            onConfirm = { url ->
+                showGithubSkillDialog = false
+                viewModel.importSkillFromGithub(url, skillImportScope)
+            },
+            onDismiss = { showGithubSkillDialog = false }
+        )
+    }
+
+    if (showThemeSheet) {
+        ThemeSelectionSheet(
+            selected = themeMode,
+            selectedPresetId = themePresetId,
+            dynamicColorEnabled = dynamicColorEnabled,
+            iconColorEnabled = iconColorEnabled,
+            onSelected = { viewModel.setThemeMode(it) },
+            onPresetSelected = { viewModel.setThemePreset(it) },
+            onDynamicColorChanged = { viewModel.setDynamicColorEnabled(it) },
+            onIconColorChanged = { viewModel.setIconColorEnabled(it) },
+            onDismiss = { showThemeSheet = false }
+        )
+    }
+
+    if (showTerminalSettingsSheet) {
+        TerminalSettingsSheet(
+            settings = terminalSettings,
+            onDismiss = { showTerminalSettingsSheet = false },
+            onSelectTheme = { viewModel.setTerminalTheme(it) },
+            onChangeFontSize = { viewModel.setTerminalFontSize(it) },
+            onChangeCursorStyle = { viewModel.setTerminalCursorStyle(it) },
+            onChangeFontPath = { viewModel.setTerminalFontPath(it) }
+        )
+    }
+
+    if (showBackgroundSheet) {
+        BackgroundImageSheet(
+            imagePath = backgroundImagePath,
+            mask = backgroundAlpha,
+            mode = backgroundMode,
+            portraitHeight = backgroundPortraitHeight,
+            isDarkTheme = darkTheme,
+            onPickImage = { viewModel.setBackgroundImage(it) },
+            onMaskChange = { viewModel.setBackgroundAlpha(it) },
+            onModeChange = { viewModel.setBackgroundMode(it) },
+            onPortraitHeightChange = { viewModel.setBackgroundPortraitHeight(it) },
+            onRemove = { viewModel.clearBackgroundImage() },
+            onDismiss = { showBackgroundSheet = false }
+        )
+    }
+
+    if (showWelcomeEntriesSheet) {
+        WelcomeEntriesSheet(
+            entries = welcomeEntries,
+            onAddEntry = { entry -> viewModel.addWelcomeEntry(entry) },
+            onUpdateEntry = { viewModel.updateWelcomeEntry(it) },
+            onRemoveEntry = { viewModel.removeWelcomeEntry(it) },
+            onSetEntryEnabled = { id, enabled -> viewModel.setWelcomeEntryEnabled(id, enabled) },
+            onMoveEntry = { id, toIndex -> viewModel.moveWelcomeEntry(id, toIndex) },
+            onRestoreDefaults = { viewModel.restoreWelcomeDefaults() },
+            onSaveIconImage = { uri, onResult -> viewModel.saveWelcomeIconImage(uri, onResult) },
+            onDismiss = { showWelcomeEntriesSheet = false }
+        )
+    }
+
+    if (showUserBubbleStyleSheet) {
+        ChatBubbleStyleSheet(
+            title = stringResource(R.string.bubble_user),
+            selected = userBubbleStyle,
+            onSelect = { viewModel.setUserBubbleStyle(it) },
+            onDismiss = { showUserBubbleStyleSheet = false }
+        )
+    }
+
+    if (showAssistantBubbleStyleSheet) {
+        ChatBubbleStyleSheet(
+            title = stringResource(R.string.bubble_assistant),
+            selected = assistantBubbleStyle,
+            onSelect = { viewModel.setAssistantBubbleStyle(it) },
+            onDismiss = { showAssistantBubbleStyleSheet = false }
+        )
+    }
+
+    if (showLanguageSheet) {
+        LanguageSelectionSheet(
+            currentTag = languageTag,
+            onSelect = { viewModel.setLanguage(it) },
+            onDismiss = { showLanguageSheet = false }
+        )
+    }
+
+    if (showImageSourceSheet) {
+        SourceSelectionSheet(
+            options = imageSourceOptions.map { it to viewModel.sourceDisplayName(it, languageTag) },
+            selected = selectedImageSource,
+            onSelected = { viewModel.setImageSource(it) },
+            onDismiss = { showImageSourceSheet = false }
+        )
+    }
+
+    if (showResetTokenStats) {
+        AlertDialog(
+            onDismissRequest = { showResetTokenStats = false },
+            title = { Text(stringResource(R.string.settings_token_stats_reset_title)) },
+            text = { Text(stringResource(R.string.settings_token_stats_reset_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetTokenStats()
+                    showResetTokenStats = false
+                }) { Text(stringResource(R.string.settings_token_stats_reset)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetTokenStats = false }) { Text(stringResource(R.string.common_cancel)) }
+            }
+        )
+    }
+
+    skillToDelete?.let { target ->
+        val deleting = target.name in skillDeleting
+        // 删除进行中保持弹窗（转圈），完成后才关闭，避免无反馈地“突然消失”。
+        var deleteStarted by remember(target) { mutableStateOf(false) }
+        LaunchedEffect(deleteStarted, deleting) {
+            if (deleteStarted && !deleting) skillToDelete = null
+        }
+        AlertDialog(
+            onDismissRequest = { if (!deleting) skillToDelete = null },
+            title = { Text(stringResource(R.string.skills_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.skills_delete_confirm_message, target.name)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !deleting,
+                    onClick = {
+                        deleteStarted = true
+                        viewModel.deleteSkill(target.name, target.scope)
+                    }
+                ) {
+                    if (deleting) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.common_delete))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !deleting, onClick = { skillToDelete = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+
+    SkillImportResultDialog(state = skillImportState, onDismiss = { viewModel.clearSkillImportState() })
+
+    subAgentToDelete?.let { target ->
+        val deleting = target.name in subAgentDeleting
+        var deleteStarted by remember(target) { mutableStateOf(false) }
+        LaunchedEffect(deleteStarted, deleting) {
+            if (deleteStarted && !deleting) subAgentToDelete = null
+        }
+        AlertDialog(
+            onDismissRequest = { if (!deleting) subAgentToDelete = null },
+            title = { Text(stringResource(R.string.subagents_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.subagents_delete_confirm_message, target.name)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !deleting,
+                    onClick = {
+                        deleteStarted = true
+                        viewModel.deleteSubAgent(target.name, target.scope)
+                    }
+                ) {
+                    if (deleting) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.common_delete))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !deleting, onClick = { subAgentToDelete = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+
+    // 「容器与镜像」使用说明公告：首次进入（或内容更新后）自动弹出，右上角 Info 按钮可随时重看。
+    if (showContainerAnnouncement) {
+        val dismiss = {
+            showContainerAnnouncement = false
+            viewModel.markContainerAnnouncementShown()
+        }
+        Dialog(onDismissRequest = dismiss) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.72f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.container_announcement_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (containerAnnouncementText.isNotBlank()) {
+                        // mikepenz Markdown 内部是 Column（非 LazyColumn），本身不可滚动，
+                        // 必须由外层提供滚动容器，否则超出弹窗高度的内容被直接裁剪。
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState())
+                                .padding(top = 8.dp, bottom = Spacing.lg)
+                        ) {
+                            MarkdownContent(
+                                text = containerAnnouncementText,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.fillMaxWidth(),
+                                loading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = dismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .padding(top = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.container_announcement_got_it))
+                    }
+                }
+            }
+        }
+    }
+
+    // 提示词使用说明公告：首次进入（或内容更新后）自动弹出，右上角 Info 按钮可随时重看。
+    if (showPromptsAnnouncement) {
+        val dismiss = {
+            showPromptsAnnouncement = false
+            viewModel.markPromptsAnnouncementShown()
+        }
+        Dialog(onDismissRequest = dismiss) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.72f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.prompts_help),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (promptsAnnouncementText.isNotBlank()) {
+                        // mikepenz Markdown 内部是 Column（非 LazyColumn），本身不可滚动，
+                        // 必须由外层提供滚动容器，否则超出弹窗高度的内容被直接裁剪。
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState())
+                                .padding(top = 8.dp, bottom = Spacing.lg)
+                        ) {
+                            MarkdownContent(
+                                text = promptsAnnouncementText,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.fillMaxWidth(),
+                                loading = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = dismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .padding(top = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.common_got_it))
+                    }
+                }
+            }
+        }
+    }
+    } // BoxWithConstraints 结束
+}
+
+/** 大屏右栏未选中分区时的占位提示。 */
+@Composable
+private fun SettingsDetailPlaceholder() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stringResource(R.string.settings_select_section_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.semanticColors.subtleText
+        )
+    }
+}
+
+/** 设置首页：每个分区一个可点击的二级菜单入口。 */
+@Composable
+internal fun SettingsMenu(
+    scrollState: ScrollState,
+    themeMode: AppThemeMode,
+    terminalSettings: TerminalSettings,
+    memoryEnabled: Boolean,
+    onToggleMemory: (Boolean) -> Unit,
+    currentLanguageDisplayName: String,
+    welcomeEntries: List<WelcomeEntry>,
+    onOpenWelcomeEntriesSheet: () -> Unit,
+    onOpenTerminalSettingsSheet: () -> Unit,
+    onOpenLanguageSheet: () -> Unit,
+    onOpenManual: () -> Unit,
+    onRerunOnboarding: () -> Unit,
+    pluginPages: List<PluginPage>,
+    onOpenPluginPage: (PluginPage) -> Unit,
+    onOpen: (SettingsSection) -> Unit
+) {
+    val pluginLanguageTag = currentLanguageTag()
+    val t = LocalUIDensityTokens.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = Spacing.md)
+            .padding(bottom = Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(t.sm)
+    ) {
+        // ── 通用设置 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_general))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.Sliders,
+                title = stringResource(SettingsSection.General.titleRes),
+                onClick = { onOpen(SettingsSection.General) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.MessageSquare,
+                title = stringResource(R.string.settings_welcome_entries),
+                subtitle = stringResource(
+                    R.string.settings_welcome_entries_count,
+                    welcomeEntries.size,
+                    WELCOME_ENTRIES_MAX
+                ),
+                onClick = onOpenWelcomeEntriesSheet
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Sliders,
+                title = stringResource(R.string.settings_appearance),
+                subtitle = stringResource(themeMode.labelRes),
+                onClick = { onOpen(SettingsSection.Appearance) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Terminal,
+                title = stringResource(R.string.terminal_settings_title),
+                onClick = onOpenTerminalSettingsSheet,
+                trailing = {
+                    Text(
+                        text = stringResource(terminalSettings.theme.nameRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.semanticColors.subtleText
+                    )
+                }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Globe,
+                title = stringResource(R.string.settings_language),
+                onClick = onOpenLanguageSheet,
+                trailing = {
+                    Text(
+                        text = currentLanguageDisplayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.semanticColors.subtleText
+                    )
+                }
+            )
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_GENERAL, pluginLanguageTag, onOpenPluginPage)
+        }
+
+        // ── AI 配置 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_ai))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.Cloud,
+                title = stringResource(SettingsSection.Providers.titleRes),
+                onClick = { onOpen(SettingsSection.Providers) },
+                modifier = Modifier.onboardingTarget(OnboardingStep.CONFIG_PROVIDER)
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Cpu,
+                title = stringResource(SettingsSection.DefaultModels.titleRes),
+                onClick = { onOpen(SettingsSection.DefaultModels) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Box,
+                title = stringResource(SettingsSection.Mcp.titleRes),
+                onClick = { onOpen(SettingsSection.Mcp) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Book,
+                title = stringResource(SettingsSection.Skills.titleRes),
+                onClick = { onOpen(SettingsSection.Skills) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Box,
+                title = stringResource(SettingsSection.Plugins.titleRes),
+                onClick = { onOpen(SettingsSection.Plugins) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Volume2,
+                title = stringResource(SettingsSection.Tts.titleRes),
+                onClick = { onOpen(SettingsSection.Tts) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Users,
+                title = stringResource(SettingsSection.SubAgents.titleRes),
+                onClick = { onOpen(SettingsSection.SubAgents) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.MessageSquare,
+                title = stringResource(SettingsSection.Prompts.titleRes),
+                onClick = { onOpen(SettingsSection.Prompts) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.User,
+                title = stringResource(SettingsSection.Roles.titleRes),
+                onClick = { onOpen(SettingsSection.Roles) }
+            )
+            // 记忆开启时显示此入口行（右侧 chevron，纯导航进管理页）；关闭后整行隐藏。启/停开关只在插件页记忆卡片。
+            if (memoryEnabled) {
+                SettingsDivider()
+                SettingsRow(
+                    icon = FeatherIcons.Database,
+                    title = stringResource(SettingsSection.Memory.titleRes),
+                    onClick = { onOpen(SettingsSection.Memory) }
+                )
+            }
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_AI, pluginLanguageTag, onOpenPluginPage)
+        }
+
+        // ── 运行环境 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_environment))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.HardDrive,
+                title = stringResource(SettingsSection.Container.titleRes),
+                onClick = { onOpen(SettingsSection.Container) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Globe,
+                title = stringResource(SettingsSection.Proxy.titleRes),
+                onClick = { onOpen(SettingsSection.Proxy) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Server,
+                title = stringResource(SettingsSection.RemoteServers.titleRes),
+                onClick = { onOpen(SettingsSection.RemoteServers) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Wifi,
+                title = stringResource(SettingsSection.WebServer.titleRes),
+                onClick = { onOpen(SettingsSection.WebServer) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Globe,
+                title = stringResource(SettingsSection.SearchProvider.titleRes),
+                onClick = { onOpen(SettingsSection.SearchProvider) }
+            )
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_ENVIRONMENT, pluginLanguageTag, onOpenPluginPage)
+        }
+
+        // ── 权限与后台 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_permissions))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.Lock,
+                title = stringResource(SettingsSection.Permissions.titleRes),
+                onClick = { onOpen(SettingsSection.Permissions) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Shield,
+                title = stringResource(SettingsSection.AppPermissions.titleRes),
+                onClick = { onOpen(SettingsSection.AppPermissions) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.RefreshCw,
+                title = stringResource(SettingsSection.BackgroundRun.titleRes),
+                onClick = { onOpen(SettingsSection.BackgroundRun) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Zap,
+                title = stringResource(R.string.phone_control_title),
+                subtitle = stringResource(R.string.phone_control_enabled_desc),
+                onClick = { onOpen(SettingsSection.PhoneControl) }
+            )
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_PERMISSIONS, pluginLanguageTag, onOpenPluginPage)
+        }
+
+        // ── 数据与诊断 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_data))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.BarChart2,
+                title = stringResource(SettingsSection.TokenStats.titleRes),
+                onClick = { onOpen(SettingsSection.TokenStats) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.PieChart,
+                title = stringResource(SettingsSection.Storage.titleRes),
+                onClick = { onOpen(SettingsSection.Storage) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Save,
+                title = stringResource(SettingsSection.Backup.titleRes),
+                onClick = { onOpen(SettingsSection.Backup) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.FileText,
+                title = stringResource(SettingsSection.Log.titleRes),
+                onClick = { onOpen(SettingsSection.Log) }
+            )
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_DATA, pluginLanguageTag, onOpenPluginPage)
+        }
+
+        // ── 帮助与关于 ──
+        SettingsGroupHeader(text = stringResource(R.string.settings_category_help))
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.BookOpen,
+                title = stringResource(R.string.settings_user_guide),
+                onClick = onOpenManual
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Zap,
+                title = stringResource(R.string.settings_rerun_onboarding),
+                onClick = onRerunOnboarding
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Info,
+                title = stringResource(SettingsSection.About.titleRes),
+                onClick = { onOpen(SettingsSection.About) }
+            )
+            PluginSettingsRows(pluginPages, PluginUiSlots.SETTINGS_HELP, pluginLanguageTag, onOpenPluginPage)
+        }
+    }
+
+}
+
+/** 插件槽位入口行：按槽位追加到对应分组末尾，副标题标明来源。 */
+@Composable
+private fun PluginSettingsRows(
+    pages: List<PluginPage>,
+    slot: String,
+    languageTag: String,
+    onOpen: (PluginPage) -> Unit
+) {
+    pages.filter { it.slot == slot }.forEach { page ->
+        SettingsDivider()
+        SettingsRow(
+            icon = pluginPageIcon(page.icon),
+            title = page.title.resolve(languageTag),
+            subtitle = stringResource(R.string.plugins_ext_entry_subtitle, page.pluginId),
+            onClick = { onOpen(page) }
+        )
+    }
+}
+
+/** 导入结果弹窗：导入中显示转圈；完成时展示成功数量与逐个跳过原因（整体失败则直接报错误）。 */
+@Composable
+private fun SkillImportResultDialog(state: SkillImportState, onDismiss: () -> Unit) {
+    when (state) {
+        SkillImportState.Idle -> Unit
+        SkillImportState.Running -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.skills_import_running)) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+            },
+            confirmButton = {}
+        )
+        is SkillImportState.Done -> {
+            val report = state.report
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text(stringResource(R.string.skills_import_result_title)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        val fatal = report.fatal
+                        if (fatal != null) {
+                            Text(stringResource(fatal.messageRes()))
+                        } else {
+                            Text(
+                                stringResource(
+                                    if (report.failures.isEmpty()) R.string.skills_import_success
+                                    else R.string.skills_import_partial,
+                                    report.imported.size,
+                                    report.failures.size
+                                )
+                            )
+                            report.failures.forEach { failure ->
+                                Text(
+                                    text = stringResource(
+                                        R.string.skills_import_failure_line,
+                                        failure.name,
+                                        stringResource(failure.error.messageRes())
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_got_it)) }
+                }
+            )
+        }
+    }
+}
+
+/** 「从 GitHub 拉取」对话框：输入仓库地址，确认后交给 ViewModel 下载源码 zip 并导入技能。 */
+@Composable
+private fun GithubSkillImportDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var url by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.skills_import_github_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(
+                    text = stringResource(R.string.skills_import_github_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AppTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    placeholder = stringResource(R.string.skills_import_github_placeholder),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.isNotBlank()) {
+                Text(stringResource(R.string.common_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
+    )
+}
+
+private fun SkillImportError.messageRes(): Int = when (this) {
+    SkillImportError.INVALID_NAME -> R.string.skills_import_error_invalid_name
+    SkillImportError.NAME_CONFLICT -> R.string.skills_import_error_name_conflict
+    SkillImportError.EMPTY_CONTENT -> R.string.skills_import_error_empty_content
+    SkillImportError.NO_SKILL_FOUND -> R.string.skills_import_error_no_skill
+    SkillImportError.INVALID_ARCHIVE -> R.string.skills_import_error_invalid_archive
+    SkillImportError.UNSUPPORTED_FILE -> R.string.skills_import_error_unsupported_file
+    SkillImportError.INVALID_URL -> R.string.skills_import_error_invalid_url
+    SkillImportError.NETWORK_ERROR -> R.string.skills_import_error_network
+    SkillImportError.IO_FAILED -> R.string.skills_import_error_io
+}

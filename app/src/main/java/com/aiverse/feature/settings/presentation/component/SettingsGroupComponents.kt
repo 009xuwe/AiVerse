@@ -1,0 +1,412 @@
+package com.aiverse.feature.settings.presentation.component
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Dp
+import com.aiverse.core.ui.ChevronRotationStyle
+import com.aiverse.core.ui.ExpandableChevronIcon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.aiverse.R
+import com.aiverse.core.theme.Spacing
+import com.aiverse.core.theme.semanticColors
+import com.aiverse.core.theme.LocalIconColorful
+import com.aiverse.core.theme.LocalSurfaceGlassStyle
+import com.aiverse.core.theme.LocalUIDensityTokens
+import com.aiverse.core.theme.glassOr
+import com.aiverse.core.theme.glassBorderOr
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronRight
+import compose.icons.feathericons.Search
+
+/**
+ * 设置页分组组件：浅灰背景 + 白色分组圆角卡片 + 组内缩进分隔线 + 黑色线条图标。
+ *
+ * 用法：
+ * ```
+ * SettingsGroupHeader("分组标题")
+ * SettingsGroup {
+ *     SettingsRow(icon, title, onClick = { ... })
+ *     SettingsDivider()
+ *     SettingsRow(icon, title, trailing = { AppSwitch(...) })
+ * }
+ * ```
+ */
+
+/** 当前是否浅色模式（据此切换浅灰/主题深色配色）。 */
+@Composable
+internal fun settingsLightMode(): Boolean =
+    MaterialTheme.colorScheme.background.luminance() > 0.5f
+
+/** 可折叠分组标题：点击展开/收起，右侧 chevron 指示状态。与工具授权页的分组一致。 */
+@Composable
+internal fun CollapsibleGroupHeader(
+    text: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    /** 标题右侧、折叠箭头左侧的可选内容（如余额）。 */
+    trailing: (@Composable () -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = Spacing.md, end = Spacing.sm, top = Spacing.sm, bottom = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        if (trailing != null) {
+            trailing()
+            Spacer(Modifier.width(Spacing.xs))
+        }
+        ExpandableChevronIcon(
+            expanded = expanded,
+            style = ChevronRotationStyle.RIGHT_DOWN,
+            size = 16.dp,
+            tint = MaterialTheme.semanticColors.subtleText
+        )
+    }
+}
+
+/** 设置页背景：统一使用语义定义的 pageBackground。 */
+@Composable
+internal fun settingsPageBackground(): Color =
+    MaterialTheme.semanticColors.pageBackground
+
+/** 分组小标题：卡片上方灰色小字，左对齐。 */
+@Composable
+internal fun SettingsGroupHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Spacing.md, top = Spacing.lg, bottom = Spacing.sm)
+    )
+}
+
+/** 白色/深色分组圆角卡片容器：内部按行排布，行间用 [SettingsDivider] 分隔。
+ *  磨砂铺开：背景改为半透明玻璃表面色 + 1dp 玻璃描边 + 轻阴影，圆角统一读密度 token。
+ *  浅色玻璃例外：描边已降为柔和浅色发丝线，若再叠阴影会与描边形成「两层框」（issue #106），
+ *  故浅色玻璃下去掉阴影只留一层边；深色玻璃与非玻璃档仍用 [UIDensityTokens.elevationSm] 不变。 */
+@Composable
+internal fun SettingsGroup(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val t = LocalUIDensityTokens.current
+    val semantic = MaterialTheme.semanticColors
+    val dark = isSystemInDarkTheme()
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = t.cardShape,
+        color = glassOr(semantic.surfaceGlass, semantic.cardSurface),
+        border = BorderStroke(1.dp, glassBorderOr(semantic.surfaceGlassBorder)),
+        shadowElevation = if (LocalSurfaceGlassStyle.current && !dark) {
+            0.dp
+        } else {
+            t.elevationSm
+        }
+    ) {
+        Column(content = content)
+    }
+}
+
+/**
+ * [SettingsGroup] 的 LazyColumn 版：逐项绘制卡片背景，首项圆上角、末项圆下角，项间自动补分隔线。
+ *
+ * 技能 / 子代理这类列表条目数不可控（项目里可能有上百个），必须走 LazyColumn 逐项虚拟化，
+ * 只组合可见行；卡片外观靠这里的首尾圆角拼出来，视觉与 [SettingsGroup] 一致。
+ * 磨砂铺开：背景改为半透明玻璃表面色 + 组级外描边（圆角跟随首尾 shape）。
+ * 描边按组拼：首项画顶边、末项画底边、左右两边始终连续，相邻行首尾相接后合成一整圈外框，
+ * 不再逐格画完整描边（否则相邻行的底边 + 顶边各 1dp 半透明玻璃线叠加成深色横线，issue #114）。
+ * 保守取舍：不逐项加阴影（LazyColumn 分段卡片阴影会与分隔线叠加、绘制成本高）。
+ */
+@Composable
+internal fun LazyGroupItem(
+    index: Int,
+    lastIndex: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val t = LocalUIDensityTokens.current
+    val corner = t.cardCorner
+    val shape = RoundedCornerShape(
+        topStart = if (index == 0) corner else 0.dp,
+        topEnd = if (index == 0) corner else 0.dp,
+        bottomStart = if (index == lastIndex) corner else 0.dp,
+        bottomEnd = if (index == lastIndex) corner else 0.dp
+    )
+    val borderColor = glassBorderOr(MaterialTheme.semanticColors.surfaceGlassBorder)
+    val borderWidth = t.scale(1)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(glassOr(MaterialTheme.semanticColors.surfaceGlass, MaterialTheme.semanticColors.cardSurface))
+            // 描边在 clip/background 之后再画：线中心落在行边界、内半边可见，与原逐格 .border() 视觉一致；
+            // 圆角行上超出色板弯角的部分被 clip 自然裁掉。
+            .then(if (index == 0) Modifier.drawTopBorder(borderColor, borderWidth) else Modifier)
+            .then(if (index == lastIndex) Modifier.drawBottomBorder(borderColor, borderWidth) else Modifier)
+            .drawHorizontalBorders(borderColor, borderWidth)
+    ) {
+        content()
+        if (index != lastIndex) SettingsDivider()
+    }
+}
+
+/** 在行区域顶部画一条横贯描边（组级外框的顶边）。 */
+private fun Modifier.drawTopBorder(color: Color, width: Dp): Modifier = drawBehind {
+    drawLine(
+        color = color,
+        start = Offset(0f, 0f),
+        end = Offset(size.width, 0f),
+        strokeWidth = width.toPx()
+    )
+}
+
+/** 在行区域底部画一条横贯描边（组级外框的底边）。 */
+private fun Modifier.drawBottomBorder(color: Color, width: Dp): Modifier = drawBehind {
+    drawLine(
+        color = color,
+        start = Offset(0f, size.height),
+        end = Offset(size.width, size.height),
+        strokeWidth = width.toPx()
+    )
+}
+
+/** 沿行区域左右两边各画一条贯通竖描边（组级外框的侧边，逐行连续）。 */
+private fun Modifier.drawHorizontalBorders(color: Color, width: Dp): Modifier = drawBehind {
+    val half = width.toPx() / 2f
+    drawLine(
+        color = color,
+        start = Offset(half, 0f),
+        end = Offset(half, size.height),
+        strokeWidth = width.toPx()
+    )
+    drawLine(
+        color = color,
+        start = Offset(size.width - half, 0f),
+        end = Offset(size.width - half, size.height),
+        strokeWidth = width.toPx()
+    )
+}
+
+/**
+ * HyperOS 风格彩色图标取色表：同一图标在所有页面用同一个色，不随主题预设漂移。
+ */
+private val SettingsIconTints: Map<String, Color> = mapOf(
+    "Cloud" to Color(0xFF3482FF),
+    "Server" to Color(0xFF00A3A3),
+    "HardDrive" to Color(0xFF00A3A3),
+    "Wifi" to Color(0xFF00A3A3),
+    "Cpu" to Color(0xFF3482FF),
+    "Sliders" to Color(0xFF3482FF),
+    "Settings" to Color(0xFF3482FF),
+    "Layers" to Color(0xFF3482FF),
+    "Book" to Color(0xFFFF8A00),
+    "BookOpen" to Color(0xFFFF8A00),
+    "FileText" to Color(0xFF5B8DEF),
+    "Database" to Color(0xFF5B8DEF),
+    "MessageSquare" to Color(0xFF00C2A8),
+    "Users" to Color(0xFFFF8A00),
+    "Shield" to Color(0xFF00B34A),
+    "Lock" to Color(0xFF00B34A),
+    "Globe" to Color(0xFF3482FF),
+    "Terminal" to Color(0xFF00B34A),
+    "Zap" to Color(0xFFFFB020),
+    "Moon" to Color(0xFF6B5BD6),
+    "Image" to Color(0xFFFF8A00),
+    "Download" to Color(0xFF3482FF),
+    "BarChart2" to Color(0xFF3482FF),
+    "PieChart" to Color(0xFF3482FF),
+    "Edit2" to Color(0xFF3482FF),
+    "Trash2" to Color(0xFFE54545),
+    "Info" to Color(0xFF3482FF),
+    "RefreshCw" to Color(0xFF8A8A8E),
+    "RotateCcw" to Color(0xFF8A8A8E),
+    "Save" to Color(0xFF3482FF),
+    "Box" to Color(0xFF8B5CF6),
+    "GitBranch" to Color(0xFFFF8A00),
+    "Brain" to Color(0xFF6B5BD6)
+)
+
+/** 按图标名取色，未登记的图标统一用主色蓝。 */
+internal fun settingsIconTint(icon: ImageVector): Color =
+    SettingsIconTints[icon.name.substringAfterLast('.')] ?: Color(0xFF3482FF)
+
+/**
+ * 分组内单行：左侧线条图标 + 标题，右侧可选尾随组件（右箭头/开关/值）。
+ *
+ * @param icon 左侧图标，null 则标题与无图标行对齐。
+ * @param trailing 右侧尾随内容（如 [com.aiverse.core.ui.AppSwitch]、chevron）。
+ * @param onClick null 表示无点击行为（如开关行）；非 null 时行尾自动显示右箭头。
+ */
+@Composable
+internal fun SettingsRow(
+    icon: ImageVector? = null,
+    title: String,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val baseModifier = modifier
+        .fillMaxWidth()
+        .let { if (onClick != null && enabled) it.clickable { onClick() } else it }
+        .padding(horizontal = Spacing.lg, vertical = 11.dp)
+    Row(
+        modifier = baseModifier.alpha(if (enabled) 1f else 0.5f),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (LocalIconColorful.current) settingsIconTint(icon) else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(Spacing.md))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            // 标题与副标题都限一行：右侧值（模型名等）较长时会压缩左侧宽度，
+            // 若不限行标题会被挤成两行（issue #78）；超长时用省略号让位。
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        trailing?.invoke(this)
+        if (onClick != null && enabled) {
+            Spacer(Modifier.width(Spacing.xs))
+            Icon(
+                imageVector = FeatherIcons.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.subtleText,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/** 分组内行间分隔线：左右两端均缩进对齐行内容，末行不显示。 */
+@Composable
+internal fun SettingsDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = Spacing.lg),
+        thickness = 0.5.dp,
+        color = MaterialTheme.semanticColors.subtleBorder
+    )
+}
+
+/** iOS 风格搜索框：浅灰胶囊背景、无边框，与设置页分组风格一致。
+ *  [trailing] 为可选尾部控件（如清除按钮）。 */
+@Composable
+internal fun ModelSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    val isLight = settingsLightMode()
+    val t = LocalUIDensityTokens.current
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(t.rPill),
+        color = MaterialTheme.semanticColors.capsuleSurface
+    ) {
+        Row(
+            // 行高固定：尾部控件（清除按钮的 IconButton 自带 48dp 最小触摸目标）比正文行高更高，
+            // 若由内容撑高，有无尾部控件时高度不一致，输入后整条搜索框会突然变高。
+            modifier = Modifier
+                .heightIn(min = 40.dp)
+                .padding(horizontal = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                FeatherIcons.Search,
+                contentDescription = null,
+                tint = MaterialTheme.semanticColors.subtleText,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.semanticColors.subtleText,
+                        maxLines = 1
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            trailing?.invoke()
+        }
+    }
+}

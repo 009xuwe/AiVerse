@@ -1,0 +1,547 @@
+package com.aiverse.core.theme
+
+import android.os.Build
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.io.File
+
+object Spacing {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 24.dp
+    val xxl = 32.dp
+}
+
+/** 聊天气泡 / 助手消息正文字号（sp），由 [AIEditorTheme] 从外观设置注入。 */
+val LocalChatFontSizeSp = staticCompositionLocalOf { 16 }
+
+/** 底部聊天输入框字号（sp），由 [AIEditorTheme] 从外观设置注入。 */
+val LocalInputFontSizeSp = staticCompositionLocalOf { 16 }
+
+/** 代码块/行内代码字号（sp），由 [AIEditorTheme] 从外观设置注入（与聊天字号分开调）。 */
+val LocalChatCodeFontSizeSp = staticCompositionLocalOf { 13 }
+
+/** 代码块自动换行（默认关）。 */
+val LocalCodeWrapEnabled = staticCompositionLocalOf { false }
+
+/** 代码块自动折叠（默认开）。 */
+val LocalCodeAutoFoldEnabled = staticCompositionLocalOf { true }
+
+/** 代码块显示行号（默认开）。 */
+val LocalCodeShowLineNumber = staticCompositionLocalOf { true }
+
+/** 用户气泡底色透明度（10~100%，默认 100）。 */
+val LocalUserBubbleOpacity = staticCompositionLocalOf { 100 }
+
+/** AI 回复气泡底色透明度（10~100%，默认 100）。 */
+val LocalAssistantBubbleOpacity = staticCompositionLocalOf { 100 }
+
+object Radius {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 10.dp
+    val mdLarge = 12.dp
+    val lg = 14.dp
+    val xl = 16.dp
+    val pill = 999.dp
+}
+
+object Brand {
+    val Blue = Color(0xFF2563EB)
+    val Sky = Color(0xFF38BDF8)
+    val IconGray = Color(0xFF64748B)
+    val Orange = Color(0xFFF57C00)
+}
+
+/** 全局统一语义色彩，解决业务代码私自 hardcode 颜色问题。 */
+data class AppSemanticColors(
+    val success: Color,
+    val onSuccess: Color,
+    val successContainer: Color,
+    val onSuccessContainer: Color,
+    val warning: Color,
+    val onWarning: Color,
+    val warningContainer: Color,
+    val onWarningContainer: Color,
+    val info: Color,
+    val onInfo: Color,
+    val infoContainer: Color,
+    val onInfoContainer: Color,
+    val diffAdd: Color,
+    val diffAddBg: Color,
+    val diffRemove: Color,
+    val diffRemoveBg: Color,
+    val subtleText: Color,
+    val subtleBorder: Color,
+    val cardSurface: Color,
+    val pageBackground: Color,
+    val mutedSurface: Color,
+    val capsuleSurface: Color,
+    val buttonMutedBg: Color,
+    /** 半透明玻璃表面色：磨砂铺开的卡片/顶栏/输入框统一底色，非 HyperOS 预设的半透明渐变基准。 */
+    val surfaceGlass: Color,
+    /** 玻璃表面描边色：与 [surfaceGlass] 配套的 1dp 描边。 */
+    val surfaceGlassBorder: Color
+)
+
+val LightSemanticColors = AppSemanticColors(
+    success = Color(0xFF22C55E),
+    onSuccess = Color(0xFFFFFFFF),
+    successContainer = Color(0xFFDCFCE7),
+    onSuccessContainer = Color(0xFF15803D),
+    warning = Color(0xFFF59E0B),
+    onWarning = Color(0xFFFFFFFF),
+    warningContainer = Color(0xFFFEF3C7),
+    onWarningContainer = Color(0xFF92400E),
+    info = Color(0xFF0284C7),
+    onInfo = Color(0xFFFFFFFF),
+    infoContainer = Color(0xFFE0F2FE),
+    onInfoContainer = Color(0xFF075985),
+    diffAdd = Color(0xFF22C55E),
+    diffAddBg = Color(0x2622C55E),
+    diffRemove = Color(0xFFEF4444),
+    diffRemoveBg = Color(0x26EF4444),
+    subtleText = Color(0xFF8E8E93),
+    subtleBorder = Color(0xFFE5E5EA),
+    cardSurface = Color(0xFFFFFFFF),
+    pageBackground = Color(0xFFF8F8F8),
+    mutedSurface = Color(0xFFF2F2F7),
+    capsuleSurface = Color(0xFFE9E9EB),
+    buttonMutedBg = Color(0xFFF0F2F5),
+    surfaceGlass = Color(0xFFFFFFFF).copy(alpha = 0.85f),
+    surfaceGlassBorder = Color(0xFFE5E5EA).copy(alpha = 0.60f)
+)
+
+val DarkSemanticColors = AppSemanticColors(
+    success = Color(0xFF4ADE80),
+    onSuccess = Color(0xFF052E16),
+    successContainer = Color(0x59052E16),
+    onSuccessContainer = Color(0xFFBBF7D0),
+    warning = Color(0xFFFBBF24),
+    onWarning = Color(0xFF78350F),
+    warningContainer = Color(0x5978350F),
+    onWarningContainer = Color(0xFFFDE68A),
+    info = Color(0xFF38BDF8),
+    onInfo = Color(0xFF0C4A6E),
+    infoContainer = Color(0x590C4A6E),
+    onInfoContainer = Color(0xFFBAE6FD),
+    diffAdd = Color(0xFF4ADE80),
+    diffAddBg = Color(0x334ADE80),
+    diffRemove = Color(0xFFF87171),
+    diffRemoveBg = Color(0x33F87171),
+    subtleText = Color(0xFF94A3B8),
+    subtleBorder = Color(0xFF2A3F56),
+    cardSurface = Color(0xFF0D1B2E),
+    pageBackground = Color(0xFF07111F),
+    mutedSurface = Color(0xFF13273F),
+    capsuleSurface = Color(0xFF1E293B),
+    buttonMutedBg = Color(0xFF1E293B),
+    surfaceGlass = Color(0xFF0D1B2E).copy(alpha = 0.86f),
+    surfaceGlassBorder = Color(0xFF2A3F56).copy(alpha = 0.45f)
+)
+
+val LocalAppSemanticColors = staticCompositionLocalOf { LightSemanticColors }
+
+val MaterialTheme.semanticColors: AppSemanticColors
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppSemanticColors.current
+
+/** Git 模块统一 8 色泳道调色板 */
+object GitLanePalette {
+    val colors = listOf(
+        Color(0xFF2563EB), // 1. 经典蓝
+        Color(0xFF16A34A), // 2. 翠绿
+        Color(0xFFF59E0B), // 3. 琥珀
+        Color(0xFF8B5CF6), // 4. 优雅紫
+        Color(0xFF06B6D4), // 5. 青蓝
+        Color(0xFFEF4444), // 6. 珊瑚红
+        Color(0xFFEC4899), // 7. 亮粉
+        Color(0xFFEAB308)  // 8. 柠檬金
+    )
+}
+
+/** Git 状态徽章统一色彩映射 */
+object GitStatusColors {
+    val Added = Color(0xFF16A34A)
+    val Modified = Color(0xFFD97706)
+    val Deleted = Color(0xFFDC2626)
+    val Renamed = Color(0xFF2563EB)
+    val Untracked = Color(0xFF94A3B8)
+    val Conflict = Color(0xFF9333EA)
+    val TypeChanged = Color(0xFF0891B2)
+    val Default = Color(0xFF64748B)
+}
+
+/** 日志级别统一色彩映射 */
+object LogLevelColors {
+    val Verbose = Color(0xFF94A3B8)
+    val Debug = Color(0xFF3B82F6)
+    val Info = Color(0xFF22C55E)
+    val Warn = Color(0xFFF59E0B)
+    val Error = Color(0xFFEF4444)
+    val None = Color(0xFF64748B)
+}
+
+/** Token / 统计图表统一调色板 */
+object TokenStatsPalette {
+    val Input = Color(0xFF3B82F6)
+    val Output = Color(0xFFF59E0B)
+    val Cache = Color(0xFF8B5CF6)
+    val Error = Color(0xFFEF4444)
+    val Cancelled = Color(0xFF94A3B8)
+    val Progress = Color(0xFF22C55E)
+}
+
+/** 存储空间页各占用分类的色标（堆叠条与行前色点共用）。 */
+object StorageUsagePalette {
+    val Chat = Color(0xFF3B82F6)
+    val Container = Color(0xFF8B5CF6)
+    val ContainerImages = Color(0xFFA78BFA)
+    val Workspaces = Color(0xFF22C55E)
+    val AiConfig = Color(0xFF14B8A6)
+    val Checkpoints = Color(0xFFF59E0B)
+    val Logs = Color(0xFFF97316)
+    val Caches = Color(0xFF94A3B8)
+    val OtherData = Color(0xFFCBD5E1)
+    val Apk = Color(0xFF64748B)
+}
+
+internal val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF60A5FA),
+    onPrimary = Color(0xFF082F49),
+    primaryContainer = Color(0xFF0F3A63),
+    onPrimaryContainer = Color(0xFFDBEAFE),
+    secondary = Color(0xFF7DD3FC),
+    onSecondary = Color(0xFF082F49),
+    secondaryContainer = Color(0xFF0C4A6E),
+    onSecondaryContainer = Color(0xFFBAE6FD),
+    tertiary = Color(0xFF22C55E),
+    tertiaryContainer = Color(0xFF14532D),
+    onTertiaryContainer = Color(0xFFBBF7D0),
+    background = Color(0xFF07111F),
+    onBackground = Color(0xFFEAF2FF),
+    surface = Color(0xFF0D1B2E),
+    onSurface = Color(0xFFEAF2FF),
+    surfaceVariant = Color(0xFF13273F),
+    onSurfaceVariant = Color(0xFFB8C7DA),
+    surfaceTint = Color.Transparent,
+    surfaceContainerLowest = Color(0xFF050C17),
+    surfaceContainerLow = Color(0xFF07111F),
+    surfaceContainer = Color(0xFF0D1B2E),
+    surfaceContainerHigh = Color(0xFF13273F),
+    surfaceContainerHighest = Color(0xFF1B3350),
+    surfaceBright = Color(0xFF24405F),
+    surfaceDim = Color(0xFF07111F),
+    outline = Color(0xFF64748B),
+    outlineVariant = Color(0xFF334155),
+    error = Color(0xFFF87171),
+    onError = Color(0xFF450A0A),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFECACA)
+)
+
+internal val LightColorScheme = lightColorScheme(
+    primary = Brand.Blue,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFDBEAFE),
+    onPrimaryContainer = Color(0xFF0B3B76),
+    secondary = Color(0xFF0284C7),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFE0F2FE),
+    onSecondaryContainer = Color(0xFF075985),
+    tertiary = Color(0xFF16A34A),
+    tertiaryContainer = Color(0xFFDCFCE7),
+    onTertiaryContainer = Color(0xFF15803D),
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0F172A),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFEAF4FF),
+    onSurfaceVariant = Color(0xFF475569),
+    surfaceTint = Color.White,
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFAFCFF),
+    surfaceContainer = Color(0xFFF4F9FF),
+    surfaceContainerHigh = Color(0xFFEAF4FF),
+    surfaceContainerHighest = Color(0xFFE0EDFA),
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFE8EEF6),
+    outline = Color(0xFFD1D1D6),
+    outlineVariant = Color(0xFFE5E5EA),
+    error = Color(0xFFDC2626),
+
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFEE2E2),
+    onErrorContainer = Color(0xFF7F1D1D)
+)
+
+private val AppTypography = Typography().run {
+    copy(
+        headlineSmall = headlineSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        titleLarge = titleLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        bodyLarge = bodyLarge.copy(lineHeight = 24.sp),
+        bodyMedium = bodyMedium.copy(lineHeight = 21.sp),
+        labelLarge = labelLarge.copy(fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+    )
+}
+
+/** HyperOS 风格开关：当前主题预设是否为 HyperOS。组件据此做条件渲染（大圆角、胶囊开关等）。 */
+val LocalHyperOSStyle = staticCompositionLocalOf { false }
+
+/** 轻量玻璃档开关：当前主题预设是否为 HyperOS 玻璃（hyperos_glass）。
+ *  仅在需要的表面（独立弹层窗口 blur 等）用它做更激进的半透明表现，不改现有 HyperOS 分支。 */
+val LocalSurfaceGlassStyle = staticCompositionLocalOf { false }
+
+/** 玻璃档返回 [glass]，其它档回退 [fallback]（改动前的原实色）。用于表面背景取色，磨砂只门控在玻璃档。 */
+@Composable
+fun glassOr(glass: Color, fallback: Color): Color =
+    if (LocalSurfaceGlassStyle.current) glass else fallback
+
+/** 玻璃档返回描边色，其它档返回透明（等效无边框，回到改动前的无描边状态）。 */
+@Composable
+fun glassBorderOr(glass: Color): Color =
+    if (LocalSurfaceGlassStyle.current) glass else Color.Transparent
+
+/** 图标彩色开关：true 时设置页图标按图标名取色，false 时统一灰白色。 */
+val LocalIconColorful = staticCompositionLocalOf { true }
+
+/** HyperOS（miuix）风格圆角体系：卡片大圆角，控件中等圆角。 */
+private val HyperOSAppShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
+/** HyperOS 风格字号层级：明确指定每个槽位的 sp 值，整体比 M3 默认更紧凑。 */
+private val HyperOSAppTypography = Typography().run {
+    copy(
+        headlineMedium = headlineMedium.copy(
+            fontSize = 30.sp,
+            lineHeight = 38.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp
+        ),
+        headlineSmall = headlineSmall.copy(
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp
+        ),
+        titleLarge = titleLarge.copy(
+            fontSize = 20.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp
+        ),
+        titleMedium = titleMedium.copy(
+            fontSize = 17.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp
+        ),
+        titleSmall = titleSmall.copy(
+            fontSize = 15.sp,
+            lineHeight = 21.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.sp
+        ),
+        bodyLarge = bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.sp),
+        bodyMedium = bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp, letterSpacing = 0.sp),
+        bodySmall = bodySmall.copy(fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.sp),
+        labelLarge = labelLarge.copy(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp),
+        labelMedium = labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.sp),
+        labelSmall = labelSmall.copy(fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.sp)
+    )
+}
+
+/**
+ * 按比例缩放整套字号：只改字号与行高，字重与字距保持不变。
+ * 信息密集页面（设置、浏览器）用它整体“缩小一档”，不必逐处改 TextStyle。
+ */
+fun Typography.scaled(factor: Float): Typography = copy(
+    displayLarge = displayLarge.scaledBy(factor),
+    displayMedium = displayMedium.scaledBy(factor),
+    displaySmall = displaySmall.scaledBy(factor),
+    headlineLarge = headlineLarge.scaledBy(factor),
+    headlineMedium = headlineMedium.scaledBy(factor),
+    headlineSmall = headlineSmall.scaledBy(factor),
+    titleLarge = titleLarge.scaledBy(factor),
+    titleMedium = titleMedium.scaledBy(factor),
+    titleSmall = titleSmall.scaledBy(factor),
+    bodyLarge = bodyLarge.scaledBy(factor),
+    bodyMedium = bodyMedium.scaledBy(factor),
+    bodySmall = bodySmall.scaledBy(factor),
+    labelLarge = labelLarge.scaledBy(factor),
+    labelMedium = labelMedium.scaledBy(factor),
+    labelSmall = labelSmall.scaledBy(factor)
+)
+
+private fun TextStyle.scaledBy(factor: Float): TextStyle {
+    val size = fontSize
+    val line = lineHeight
+    return copy(
+        fontSize = if (size == TextUnit.Unspecified) size else (size.value * factor).sp,
+        lineHeight = if (line == TextUnit.Unspecified) line else (line.value * factor).sp
+    )
+}
+
+/**
+ * 把整套 Material Typography 的字族整体替换为 [family]（界面字体全局生效）。
+ * 代码块/终端等显式指定 MONOSPACE 的组件自带字体，不受这里影响。
+ */
+private fun Typography.withFontFamily(family: FontFamily): Typography = copy(
+    displayLarge = displayLarge.copy(fontFamily = family),
+    displayMedium = displayMedium.copy(fontFamily = family),
+    displaySmall = displaySmall.copy(fontFamily = family),
+    headlineLarge = headlineLarge.copy(fontFamily = family),
+    headlineMedium = headlineMedium.copy(fontFamily = family),
+    headlineSmall = headlineSmall.copy(fontFamily = family),
+    titleLarge = titleLarge.copy(fontFamily = family),
+    titleMedium = titleMedium.copy(fontFamily = family),
+    titleSmall = titleSmall.copy(fontFamily = family),
+    bodyLarge = bodyLarge.copy(fontFamily = family),
+    bodyMedium = bodyMedium.copy(fontFamily = family),
+    bodySmall = bodySmall.copy(fontFamily = family),
+    labelLarge = labelLarge.copy(fontFamily = family),
+    labelMedium = labelMedium.copy(fontFamily = family),
+    labelSmall = labelSmall.copy(fontFamily = family)
+)
+
+/** 把子树内的 Material 字体整体缩放一档，颜色与形状保持当前主题不变。 */
+@Composable
+fun CompactTypography(
+    factor: Float = 0.9f,
+    content: @Composable () -> Unit
+) {
+    val base = MaterialTheme.typography
+    val scaled = remember(base, factor) { base.scaled(factor) }
+    MaterialTheme(
+        colorScheme = MaterialTheme.colorScheme,
+        typography = scaled,
+        shapes = MaterialTheme.shapes,
+        content = content
+    )
+}
+
+/**
+ * @param preset 用户选定的配色主题。
+ * @param dynamicColor 是否启用系统莫奈取色；低于 Android 12 时自动回退到 [preset]。
+ */
+@Composable
+fun AIEditorTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    preset: AppThemePreset = AppThemePreset.DEFAULT,
+    dynamicColor: Boolean = false,
+    iconColorful: Boolean = true,
+    userBubbleStyle: ChatBubbleStyle = ChatBubbleStyle.CLASSIC_OUTLINE,
+    assistantBubbleStyle: ChatBubbleStyle = ChatBubbleStyle.CLASSIC_OUTLINE,
+    chatFontSizeSp: Int = 16,
+    inputFontSizeSp: Int = 16,
+    codeFontSizeSp: Int = 13,
+    codeWrapEnabled: Boolean = false,
+    codeAutoFoldEnabled: Boolean = true,
+    codeShowLineNumber: Boolean = true,
+    userBubbleOpacity: Int = 100,
+    assistantBubbleOpacity: Int = 100,
+    uiFontScale: Float = 1f,
+    uiFontPath: String = "",
+    uiDensity: UIDensity = UIDensity.STANDARD,
+    cardCornerDp: Int = 12,
+    buttonCornerDp: Int = 10,
+    fieldCornerDp: Int = 12,
+    bubbleCornerDp: Int = 10,
+    imageCornerDp: Int = 12,
+    content: @Composable () -> Unit
+) {
+    val context = LocalContext.current
+    val themeColors = remember(darkTheme, preset, dynamicColor, context) {
+        if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val dynamicScheme =
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            deriveDynamicThemeColors(dynamicScheme, darkTheme)
+        } else if (darkTheme) {
+            preset.dark
+        } else {
+            preset.light
+        }
+    }
+
+    val isHyperOS = preset.id == "hyperos"
+    val isGlass = preset.id == "hyperos_glass"
+    val baseTypography = if (isHyperOS) HyperOSAppTypography else AppTypography
+    // 界面字体：空串=系统默认；导入字体文件失效时回落系统默认，避免整个 UI 崩掉。
+    val appFontFamily = remember(uiFontPath) {
+        if (uiFontPath.isBlank()) FontFamily.Default
+        else runCatching { FontFamily(Font(File(uiFontPath))) }.getOrDefault(FontFamily.Default)
+    }
+    val typography = baseTypography.withFontFamily(appFontFamily)
+    val shapes = if (isHyperOS) HyperOSAppShapes else Shapes()
+
+    CompositionLocalProvider(
+        LocalAppSemanticColors provides themeColors.semanticColors,
+        LocalHyperOSStyle provides isHyperOS,
+        LocalSurfaceGlassStyle provides isGlass,
+        LocalIconColorful provides iconColorful,
+        LocalUserBubbleStyle provides userBubbleStyle,
+        LocalAssistantBubbleStyle provides assistantBubbleStyle,
+        LocalChatFontSizeSp provides chatFontSizeSp,
+        LocalInputFontSizeSp provides inputFontSizeSp,
+        LocalChatCodeFontSizeSp provides codeFontSizeSp,
+        LocalCodeWrapEnabled provides codeWrapEnabled,
+        LocalCodeAutoFoldEnabled provides codeAutoFoldEnabled,
+        LocalCodeShowLineNumber provides codeShowLineNumber,
+        LocalUserBubbleOpacity provides userBubbleOpacity,
+        LocalAssistantBubbleOpacity provides assistantBubbleOpacity,
+        LocalUIDensityTokens provides remember(uiDensity, cardCornerDp, buttonCornerDp, fieldCornerDp, bubbleCornerDp, imageCornerDp) {
+            UIDensityTokens.forDensity(
+                uiDensity,
+                cardCornerDp,
+                buttonCornerDp,
+                fieldCornerDp,
+                bubbleCornerDp,
+                imageCornerDp
+            )
+        }
+    ) {
+        val baseDensity = LocalDensity.current
+        CompositionLocalProvider(
+            LocalDensity provides Density(baseDensity.density, uiFontScale)
+        ) {
+            MaterialTheme(
+                colorScheme = themeColors.colorScheme,
+                typography = typography,
+                shapes = shapes,
+                content = content
+            )
+        }
+    }
+}
