@@ -3148,6 +3148,14 @@ Use `/goal pause`, `/goal resume`, or `/goal clear` anytime.</string>
     <string name="launch_permission_notification_desc">Task completion, downloads and keep-alive alerts</string>
     <string name="launch_permission_go">Enable</string>
     <string name="launch_permission_footnote">You can change these any time in Settings → App permissions. Nothing is read from your device.</string>
+    <string name="launch_permission_install_title">Install apps</string>
+    <string name="launch_permission_install_desc">Allow installing APKs. Only needed for plugin packages and self-updates.</string>
+    <string name="launch_permission_overlay_title">Display over other apps</string>
+    <string name="launch_permission_overlay_desc">Let tools float above other apps. Enable only when you use floating tools.</string>
+    <string name="launch_permission_autostart_title">Autostart &amp; background</string>
+    <string name="launch_permission_autostart_desc">Some systems kill background sessions. Enable if you use it often.</string>
+    <string name="launch_permission_autostart_action">Settings</string>
+    <string name="launch_theme_color_section">Color theme</string>
     <string name="launch_page_appearance_title">Pick your look</string>
     <string name="launch_page_appearance_subtitle">Theme and chat bubbles apply instantly; change them later in Settings → Appearance.</string>
     <string name="launch_theme_section">Light / dark</string>
@@ -3173,7 +3181,4 @@ Use `/goal pause`, `/goal resume`, or `/goal clear` anytime.</string>
     <string name="launch_star_point_3">Models and keys stay on-device, never through a third party</string>
     <string name="launch_star_action">Star on GitHub</string>
     <string name="launch_star_optional_hint">Totally optional — just tap "Get started" to continue.</string>
-
-    <string name="welcome_guide_container">Container guide</string>
-    <string name="welcome_guide_prompts">Prompt guide</string>
 </resources>

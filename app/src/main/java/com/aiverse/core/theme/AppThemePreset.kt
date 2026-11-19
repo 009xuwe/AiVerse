@@ -215,6 +215,9 @@ data class AppThemePreset(
         )
 
         /** HyperOS 默认排第一（应用默认主题），其后 HyperOS 玻璃、咖啡、品牌蓝、石墨、森林。 */
+        /** 应用默认主题 id（用户从未选过主题时展示与回退都用它，和 findById 的回退一致）。 */
+        val APP_DEFAULT_PRESET_ID: String = HYPEROS.id
+
         val ALL_PRESETS = listOf(HYPEROS, HYPEROS_GLASS, COFFEE, DEFAULT, GRAPHITE, FOREST)
 
         fun findById(id: String?): AppThemePreset =

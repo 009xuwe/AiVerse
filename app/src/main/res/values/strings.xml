@@ -3147,6 +3147,14 @@ AI 将自主循环推进（工具自动放行、PLAN 停用），直到达成、
     <string name="launch_permission_notification_desc">任务完成、下载结束与后台保活提醒</string>
     <string name="launch_permission_go">去开启</string>
     <string name="launch_permission_footnote">随时可以在「设置 → 软件权限」里调整，应用不会因此读取你的私人数据。</string>
+    <string name="launch_permission_install_title">安装应用</string>
+    <string name="launch_permission_install_desc">允许安装 APK。装插件包、自更新时才用得上，不需要可以不开。</string>
+    <string name="launch_permission_overlay_title">悬浮窗</string>
+    <string name="launch_permission_overlay_desc">让工具浮在其它应用之上。用悬浮窗类工具时再开，平时不开也不影响使用。</string>
+    <string name="launch_permission_autostart_title">自启动与后台运行</string>
+    <string name="launch_permission_autostart_desc">部分系统会限制后台，导致终端会话被结束。常用就开，不常用可以不开。</string>
+    <string name="launch_permission_autostart_action">去设置</string>
+    <string name="launch_theme_color_section">配色主题</string>
     <string name="launch_page_appearance_title">选择你的外观</string>
     <string name="launch_page_appearance_subtitle">主题与聊天气泡即时生效，之后可随时在「设置 → 外观设置」修改。</string>
     <string name="launch_theme_section">深浅模式</string>
@@ -3172,7 +3180,4 @@ AI 将自主循环推进（工具自动放行、PLAN 停用），直到达成、
     <string name="launch_star_point_3">模型与密钥都留在本地，不经过第三方服务器</string>
     <string name="launch_star_action">去 GitHub 点 Star</string>
     <string name="launch_star_optional_hint">点不点都不影响使用，直接点右下角「开始使用」即可。</string>
-
-    <string name="welcome_guide_container">容器环境指南</string>
-    <string name="welcome_guide_prompts">提示词指南</string>
 </resources>

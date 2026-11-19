@@ -53,6 +53,9 @@ fun LaunchGate(
     val bubbleStyle by themeSettings.userBubbleStyleFlow.collectAsStateWithLifecycle(
         initialValue = ChatBubbleStyle.CLASSIC_OUTLINE
     )
+    val themePresetId by themeSettings.themePresetIdFlow.collectAsStateWithLifecycle(
+        initialValue = null as String?
+    )
 
     // 测试版判定只看包名（applicationId 以 .beta 结尾），与 BetaHandoffRepository 同一口径。
     val isBeta = remember(context) { betaHandoffRepository.isBetaPackage() }
@@ -71,8 +74,10 @@ fun LaunchGate(
             isBeta = isBeta,
             betaHandoffAvailable = betaHandoffAvailable,
             themeMode = themeMode,
+            themePresetId = themePresetId,
             bubbleStyle = bubbleStyle,
             onThemeModeChange = { mode -> scope.launch { themeSettings.setThemeMode(mode) } },
+            onThemePresetChange = { id -> scope.launch { themeSettings.setThemePresetId(id) } },
             onBubbleStyleChange = { style -> scope.launch { themeSettings.setBubbleStyle(style) } },
             onImportFromRelease = {
                 // 复用原有 deep link：拉起正式版的授权页，由它把数据写回测试版。

@@ -895,34 +895,43 @@ internal fun PluginDetailSection(
             )
         }
 
-        if (!hasConfigPage || selectedTab == 0) {
-            // Tab 0: AiVerse 固定配置与管理页面
-            PluginNativeConfigContent(
-                plugin = plugin,
-                languageTag = languageTag,
-                onToggleEnabled = onToggleEnabled,
-                dependencyState = dependencyState,
-                onPrepareDependencies = onPrepareDependencies,
-                shizukuGranted = shizukuGranted,
-                shizukuState = shizukuState,
-                onSetShizukuGranted = onSetShizukuGranted,
-                overlayGranted = overlayGranted,
-                onSetOverlayGranted = onSetOverlayGranted,
-                backupGranted = backupGranted,
-                onSetBackupGranted = onSetBackupGranted
-            )
-        } else {
-            // Tab 1: 插件自己的专属 WebView 配置页面
-            // TODO(P3d): PluginWebPanelScreen 待 P3d 落地。
-            PluginWebPanelScreen(
-                page = configPage,
-                onClosePage = onClosePage,
-                bridgeFactory = { post, onClose ->
-                    bridgeFactory(configPage, post, onClose)
-                },
-                modifier = Modifier.fillMaxSize(),
-                applySystemBarInsets = false
-            )
+        // 内容区必须用 weight(1f) 吃掉「顶栏 + 分段控件」剩下的高度。
+        // 之前这里是 Column 的末位子项直接 fillMaxSize：它会按整屏高度测量，把内容顶出屏幕底部，
+        // 表现就是「插件管理 / 插件配置要往下滑一段才看全、上方顶栏像不见了」。
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            if (!hasConfigPage || selectedTab == 0) {
+                // Tab 0: AiVerse 固定配置与管理页面
+                PluginNativeConfigContent(
+                    plugin = plugin,
+                    languageTag = languageTag,
+                    onToggleEnabled = onToggleEnabled,
+                    dependencyState = dependencyState,
+                    onPrepareDependencies = onPrepareDependencies,
+                    shizukuGranted = shizukuGranted,
+                    shizukuState = shizukuState,
+                    onSetShizukuGranted = onSetShizukuGranted,
+                    overlayGranted = overlayGranted,
+                    onSetOverlayGranted = onSetOverlayGranted,
+                    backupGranted = backupGranted,
+                    onSetBackupGranted = onSetBackupGranted
+                )
+            } else {
+                // Tab 1: 插件自己的专属 WebView 配置页面
+                // TODO(P3d): PluginWebPanelScreen 待 P3d 落地。
+                PluginWebPanelScreen(
+                    page = configPage,
+                    onClosePage = onClosePage,
+                    bridgeFactory = { post, onClose ->
+                        bridgeFactory(configPage, post, onClose)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    applySystemBarInsets = false
+                )
+            }
         }
     }
 }

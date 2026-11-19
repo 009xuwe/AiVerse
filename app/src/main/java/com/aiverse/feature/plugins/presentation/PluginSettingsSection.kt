@@ -24,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,10 +38,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -223,7 +228,21 @@ internal fun PluginSettingsSection(
 
     if (selectedPlugin != null) {
         val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-        Column(modifier = Modifier.fillMaxSize()) {
+        // 点开详情 / 点返回时页面是“啪”一下直接换的，看着像跳转。这里给详情页一个
+        // 260ms 的淡入 + 轻微右移入场，切页就有了过渡，不再是瞬间切换。
+        val detailEnter = remember { Animatable(0f) }
+        LaunchedEffect(selectedPlugin.id) {
+            detailEnter.snapTo(0f)
+            detailEnter.animateTo(1f, tween(durationMillis = 260, easing = FastOutSlowInEasing))
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = detailEnter.value
+                    translationX = (1f - detailEnter.value) * 28.dp.toPx()
+                }
+        ) {
             PluginBackBar(
                 onBack = { selectedPluginId = null },
                 title = selectedPlugin.displayName(languageTag),

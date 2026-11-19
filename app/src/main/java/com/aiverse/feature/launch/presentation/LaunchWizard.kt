@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +21,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -54,6 +56,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,7 +68,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -76,13 +81,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.aiverse.R
 import com.aiverse.app.util.TextCipher
+import com.aiverse.core.theme.AppThemePreset
 import com.aiverse.core.theme.ChatBubbleStyle
+import com.aiverse.feature.agent.presentation.component.chatBubbleBorderFor
+import com.aiverse.feature.agent.presentation.component.chatBubbleColorFor
+import com.aiverse.feature.agent.presentation.component.chatBubbleShapeFor
+import com.aiverse.feature.agent.presentation.component.chatBubbleTextColorFor
 import com.aiverse.feature.settings.data.repository.AppThemeMode
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Bell
@@ -106,6 +117,7 @@ enum class LaunchWizardPage { AGREEMENT, PERMISSIONS, APPEARANCE, BETA_HANDOFF, 
  * @param isBeta 当前包是否为测试版（`applicationId` 以 `.beta` 结尾）。
  * @param betaHandoffAvailable 是否检测到「本机已装正式版且测试版自身无数据」。
  * @param themeMode 当前深浅模式（改动即时生效并持久化）。
+ * @param themePresetId 当前配色主题 id（null = 应用默认主题）。
  * @param bubbleStyle 当前聊天气泡样式（改动即时生效并持久化）。
  */
 @Composable
@@ -113,8 +125,10 @@ fun LaunchWizard(
     isBeta: Boolean,
     betaHandoffAvailable: Boolean,
     themeMode: AppThemeMode,
+    themePresetId: String?,
     bubbleStyle: ChatBubbleStyle,
     onThemeModeChange: (AppThemeMode) -> Unit,
+    onThemePresetChange: (String) -> Unit,
     onBubbleStyleChange: (ChatBubbleStyle) -> Unit,
     onImportFromRelease: () -> Unit,
     onAgree: () -> Unit,
@@ -136,6 +150,9 @@ fun LaunchWizard(
     val current = pages[index.coerceIn(0, pages.lastIndex)]
     val isFirst = index == 0
     val isLast = index == pages.lastIndex
+    // 横滑翻页的累计位移与阈值（阈值按当前密度换算，不写死像素）。
+    var dragAccum by remember { mutableFloatStateOf(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 72.dp.toPx() }
 
     fun goNext() {
         if (isFirst) onAgree()
@@ -185,12 +202,40 @@ fun LaunchWizard(
             AnimatedContent(
                 targetState = current,
                 transitionSpec = {
-                    (fadeIn(tween(180)) + slideInHorizontally(tween(220)) { it / 8 })
-                        .togetherWith(fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { -it / 10 })
+                    // 按翻页方向决定动画：前进时新页从右侧推入、旧页往左退；后退时反过来。
+                    // 两页都用整屏宽度位移，方向一眼能看出来，不会再“分不清往左还是往右”。
+                    val forward = targetState.ordinal > initialState.ordinal
+                    val slide = tween<IntOffset>(durationMillis = 300, easing = FastOutSlowInEasing)
+                    if (forward) {
+                        (slideInHorizontally(slide) { it } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(slide) { -it } + fadeOut(tween(180)))
+                    } else {
+                        (slideInHorizontally(slide) { -it } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(slide) { it } + fadeOut(tween(180)))
+                    }
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .pointerInput(pages) {
+                        // 左右滑动翻页：横向拖过阈值等价于点「下一步 / 上一页」；
+                        // 只接管横向手势，页面内的纵向滚动不受影响。
+                        detectHorizontalDragGestures(
+                            onDragStart = { dragAccum = 0f },
+                            onDragEnd = {
+                                when {
+                                    dragAccum <= -swipeThresholdPx && !isLast -> index += 1
+                                    dragAccum >= swipeThresholdPx && !isFirst -> index -= 1
+                                }
+                                dragAccum = 0f
+                            },
+                            onDragCancel = { dragAccum = 0f },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                dragAccum += dragAmount
+                            }
+                        )
+                    },
                 label = "LaunchWizardPage"
             ) { page ->
                 when (page) {
@@ -198,8 +243,10 @@ fun LaunchWizard(
                     LaunchWizardPage.PERMISSIONS -> PermissionsPage()
                     LaunchWizardPage.APPEARANCE -> AppearancePage(
                         themeMode = themeMode,
+                        themePresetId = themePresetId,
                         bubbleStyle = bubbleStyle,
                         onThemeModeChange = onThemeModeChange,
+                        onThemePresetChange = onThemePresetChange,
                         onBubbleStyleChange = onBubbleStyleChange
                     )
                     LaunchWizardPage.BETA_HANDOFF -> BetaHandoffPage(
@@ -400,6 +447,11 @@ private fun PermissionsPage() {
     var notificationGranted by remember { mutableStateOf(notificationsGranted(context)) }
     var batteryExemptState by remember { mutableStateOf(batteryExempt(context)) }
     var storageGrantedState by remember { mutableStateOf(storageGranted(context)) }
+    // 安装未知应用 / 悬浮窗：系统能准确查到状态；自启动没有官方 API，只能跳系统页手动开，
+    // 这里用一个“已去过设置”的本地标记，避免一直显示成未授权。
+    var installGrantedState by remember { mutableStateOf(installPackagesGranted(context)) }
+    var overlayGrantedState by remember { mutableStateOf(overlayGranted(context)) }
+    var autoStartVisited by remember { mutableStateOf(false) }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -428,6 +480,8 @@ private fun PermissionsPage() {
         notificationGranted = notificationsGranted(context)
         batteryExemptState = batteryExempt(context)
         storageGrantedState = storageGranted(context)
+        installGrantedState = installPackagesGranted(context)
+        overlayGrantedState = overlayGranted(context)
         onPauseOrDispose { }
     }
 
@@ -486,6 +540,60 @@ private fun PermissionsPage() {
                 )
             }
         )
+        Spacer(modifier = Modifier.height(10.dp))
+        PermissionRow(
+            icon = { Icon(FeatherIcons.Package, null, tint = MaterialTheme.colorScheme.primary) },
+            title = stringResource(R.string.launch_permission_install_title),
+            desc = stringResource(R.string.launch_permission_install_desc),
+            granted = installGrantedState,
+            onGrant = {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:${context.packageName}")
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        PermissionRow(
+            icon = { Icon(FeatherIcons.Maximize, null, tint = MaterialTheme.colorScheme.primary) },
+            title = stringResource(R.string.launch_permission_overlay_title),
+            desc = stringResource(R.string.launch_permission_overlay_desc),
+            granted = overlayGrantedState,
+            onGrant = {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${context.packageName}")
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        PermissionRow(
+            icon = { Icon(FeatherIcons.Power, null, tint = MaterialTheme.colorScheme.primary) },
+            title = stringResource(R.string.launch_permission_autostart_title),
+            desc = stringResource(R.string.launch_permission_autostart_desc),
+            granted = autoStartVisited,
+            grantLabel = stringResource(R.string.launch_permission_autostart_action),
+            onGrant = {
+                autoStartVisited = true
+                // 自启动各家系统位置不同，入口统一落到「应用详情页」，用户能在里面找到自启动/后台限制。
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${context.packageName}")
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.launch_permission_footnote),
@@ -502,6 +610,7 @@ private fun PermissionRow(
     title: String,
     desc: String,
     granted: Boolean,
+    grantLabel: String? = null,
     onGrant: () -> Unit
 ) {
     Surface(
@@ -548,9 +657,11 @@ private fun PermissionRow(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Text(
-                    text = stringResource(
-                        if (granted) R.string.settings_permission_granted else R.string.launch_permission_go
-                    ),
+                    text = if (granted) {
+                        stringResource(R.string.settings_permission_granted)
+                    } else {
+                        grantLabel ?: stringResource(R.string.launch_permission_go)
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = if (granted) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -575,6 +686,14 @@ private fun batteryExempt(context: android.content.Context): Boolean {
     return runCatching { pm.isIgnoringBatteryOptimizations(context.packageName) }.getOrDefault(false)
 }
 
+/** 安装未知来源应用：Android 8+ 走 packageManager 的精确判断。 */
+private fun installPackagesGranted(context: android.content.Context): Boolean =
+    runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
+
+/** 悬浮窗（在其他应用上层显示）。 */
+private fun overlayGranted(context: android.content.Context): Boolean =
+    runCatching { Settings.canDrawOverlays(context) }.getOrDefault(false)
+
 private fun storageGranted(context: android.content.Context): Boolean =
     ContextCompat.checkSelfPermission(
         context, Manifest.permission.READ_EXTERNAL_STORAGE
@@ -588,8 +707,10 @@ private fun storageGranted(context: android.content.Context): Boolean =
 @Composable
 private fun AppearancePage(
     themeMode: AppThemeMode,
+    themePresetId: String?,
     bubbleStyle: ChatBubbleStyle,
     onThemeModeChange: (AppThemeMode) -> Unit,
+    onThemePresetChange: (String) -> Unit,
     onBubbleStyleChange: (ChatBubbleStyle) -> Unit
 ) {
     Column(
@@ -620,6 +741,27 @@ private fun AppearancePage(
                     selected = themeMode == mode,
                     modifier = Modifier.weight(1f),
                     onClick = { onThemeModeChange(mode) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        // 配色主题：在深浅模式下面再选一套主色，缩略图直接是用该主题的主色 + 页面底色画的
+        SectionLabel(stringResource(R.string.launch_theme_color_section))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val darkNow = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            AppThemePreset.ALL_PRESETS.forEach { preset ->
+                ThemePresetCard(
+                    preset = preset,
+                    dark = darkNow,
+                    selected = preset.id == (themePresetId ?: AppThemePreset.APP_DEFAULT_PRESET_ID),
+                    onClick = { onThemePresetChange(preset.id) }
                 )
             }
         }
@@ -706,6 +848,80 @@ private fun ThemeModeCard(
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp, bottom = 2.dp)
+        )
+    }
+}
+
+/**
+ * 配色主题卡：色块直接用该主题的「主色 + 页面底色」画出来（previewColors 与设置页选主题
+ * 用的是同一个方法），不用手写近似色，换了主题色这里跟着变。
+ */
+@Composable
+private fun ThemePresetCard(
+    preset: AppThemePreset,
+    dark: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val (primary, pageBg) = preset.previewColors(dark)
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.outlineVariant,
+        label = "presetBorder"
+    )
+    Column(
+        modifier = Modifier
+            .width(92.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .padding(6.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(70.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = pageBg,
+            border = BorderStroke(1.dp, borderColor.copy(alpha = if (selected) 0.9f else 0.4f))
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                // 主色条 + 一条弱化的次强调条 + 一个主色小按钮，示意这套配色的观感
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(9.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(primary)
+                )
+                Spacer(modifier = Modifier.height(7.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(primary.copy(alpha = 0.45f))
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.45f)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(primary)
+                )
+            }
+        }
+        Text(
+            text = stringResource(preset.nameRes),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -805,40 +1021,23 @@ private fun BubbleStyleCard(
     }
 }
 
-/** 单枚气泡预览：按样式切换底色 / 边框 / 圆角 / 是否镜像。 */
+/**
+ * 单枚气泡预览：底色 / 文字色 / 描边 / 圆角 / 阴影全部复用聊天页 ChatMessageStyle 的同一套推导
+ * （chatBubbleColorFor / chatBubbleTextColorFor / chatBubbleBorderFor / chatBubbleShapeFor），
+ * 预览和真实气泡是同一个数据源，不再在这里手写近似色值。
+ * NO_BUBBLE 在真实聊天里不套容器，这里同样只留文字、不画底色。
+ */
 @Composable
 private fun BubblePreviewChip(style: ChatBubbleStyle, mine: Boolean) {
-    val scheme = MaterialTheme.colorScheme
-    val isDark = scheme.background.luminance() < 0.5f
-    val shape = when (style) {
-        ChatBubbleStyle.FRESH_GREEN -> RoundedCornerShape(18.dp)
-        ChatBubbleStyle.MINIMAL_WHITE -> RoundedCornerShape(6.dp)
-        ChatBubbleStyle.NO_BUBBLE -> RoundedCornerShape(0.dp)
-        else -> RoundedCornerShape(10.dp)
-    }
-    val background = when (style) {
-        ChatBubbleStyle.NO_BUBBLE -> Color.Transparent
-        ChatBubbleStyle.DARK_MODE -> if (isDark) Color(0xFF2A2E35) else Color(0xFF22252A)
-        ChatBubbleStyle.FRESH_GREEN -> Color(0xFF49B36C).copy(alpha = 0.9f)
-        ChatBubbleStyle.HEARTBEAT -> Color(0xFFF2C6D0)
-        ChatBubbleStyle.COMIC -> Color(0xFFFFE08A)
-        ChatBubbleStyle.SOFT_SHADOW -> scheme.surfaceVariant
-        ChatBubbleStyle.MINIMAL_WHITE -> Color.White
-        ChatBubbleStyle.ORIGINAL -> if (mine) scheme.primary.copy(alpha = 0.85f) else scheme.surfaceVariant
-        ChatBubbleStyle.CLASSIC_OUTLINE -> scheme.surface
-        else -> scheme.surfaceVariant
-    }
-    val border = when (style) {
-        ChatBubbleStyle.CLASSIC_OUTLINE -> BorderStroke(1.dp, scheme.outline.copy(alpha = 0.55f))
-        ChatBubbleStyle.COMIC -> BorderStroke(2.dp, Color(0xFF2B2B2B))
-        ChatBubbleStyle.HEARTBEAT -> BorderStroke(1.dp, Color(0xFFE08CA8))
-        else -> null
-    }
-    val textColor = when (style) {
-        ChatBubbleStyle.DARK_MODE, ChatBubbleStyle.FRESH_GREEN, ChatBubbleStyle.ORIGINAL -> Color.White
-        ChatBubbleStyle.COMIC -> Color(0xFF2B2B2B)
-        else -> scheme.onSurface
-    }
+    val shape = chatBubbleShapeFor(style)
+    val noBubble = style == ChatBubbleStyle.NO_BUBBLE
+    val bubbleColor = chatBubbleColorFor(style)
+    val textColor = chatBubbleTextColorFor(style)
+    val shadowElevation = if (style == ChatBubbleStyle.SOFT_SHADOW) 4.dp else 0.dp
+    // 白底样式（白描边 / 无气泡）在预览卡上几乎看不见，补一层极浅描边只为“看得见边界”，
+    // 真实聊天里这类样式本来也没有描边，故这一层只在预览里加。
+    val border = chatBubbleBorderFor(style)
+        ?: BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start
@@ -848,15 +1047,15 @@ private fun BubblePreviewChip(style: ChatBubbleStyle, mine: Boolean) {
                 .height(20.dp)
                 .width(52.dp)
                 .then(
-                    if (style == ChatBubbleStyle.SOFT_SHADOW && !isDark) {
-                        Modifier.shadow(3.dp, shape)
+                    if (shadowElevation > 0.dp) {
+                        Modifier.shadow(shadowElevation, shape, clip = false)
                     } else {
                         Modifier
                     }
                 )
                 .clip(shape)
-                .background(background)
-                .then(if (border != null) Modifier.border(border, shape) else Modifier),
+                .background(if (noBubble) Color.Transparent else bubbleColor)
+                .then(if (noBubble) Modifier else Modifier.border(border, shape)),
             contentAlignment = Alignment.Center
         ) {
             Text(
