@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.aiverse.R
 import com.aiverse.core.theme.Radius
 import com.aiverse.core.theme.LocalUIDensityTokens
+import com.aiverse.core.theme.LocalHyperOSStyle
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.glassOr
 import com.aiverse.core.theme.semanticColors
@@ -106,7 +107,14 @@ fun TodoDashboardBar(
     if (dismissed) return
 
     val cardBgColor = glassOr(MaterialTheme.semanticColors.surfaceGlass, MaterialTheme.colorScheme.surface)
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    // 与输入框保持一致：HyperOS 风格下用 0.5dp + outline 55% 的细描边，普通主题仍是 1dp + outlineVariant。
+    val hyperOS = LocalHyperOSStyle.current
+    val borderWidth = if (hyperOS) 0.5.dp else 1.dp
+    val borderColor = if (hyperOS) {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
 
     Surface(
         modifier = modifier
@@ -114,7 +122,7 @@ fun TodoDashboardBar(
             .padding(bottom = Spacing.xs),
         shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         color = cardBgColor,
-        border = BorderStroke(1.dp, borderColor)
+        border = BorderStroke(borderWidth, borderColor)
     ) {
         Column(
             modifier = Modifier
