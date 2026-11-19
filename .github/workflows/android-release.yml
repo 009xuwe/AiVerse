@@ -15,6 +15,11 @@ on:
         required: false
         default: ''
         type: string
+      notes:
+        description: '更新公告（可留空。多行内容请写进 release-notes/<版本号>.md；这里只适合一句话，换行用 \n 转义）'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -131,21 +136,44 @@ jobs:
           TAG="v${{ steps.version.outputs.full }}"
           gh release delete "$TAG" --repo yhdmgf/AiVerse --yes --cleanup-tag || true
 
+      # 正文拼装：APK 说明固定在最上面，更新公告按「文件优先、单行输入兜底」追加在后。
+      # 之所以不用 workflow 输入直写：dispatch 输入框是单行的，多行公告只能走版本化文件。
+      - name: 生成发布正文
+        env:
+          FULL: ${{ steps.version.outputs.full }}
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          mkdir -p dist
+          {
+            echo "## APK 说明"
+            echo
+            echo "| 包名 | ABI | 适用设备 |"
+            echo "|---|---|---|"
+            echo "| AiVerse-arm64-v$FULL.apk | arm64-v8a | 新手机（推荐） |"
+            echo "| AiVerse-x86_64-v$FULL.apk | x86_64 | 模拟器 / x86 设备 |"
+            echo "| AiVerse-universal-v$FULL.apk | arm64-v8a + x86_64 | 通用包：同时含两套镜像，兼容所有设备，体积约为单架构包两倍 |"
+            NOTES_FILE="release-notes/$FULL.md"
+            if [ -f "$NOTES_FILE" ]; then
+              echo
+              cat "$NOTES_FILE"
+            elif [ -n "$NOTES" ]; then
+              echo
+              echo "## 更新内容"
+              echo
+              printf '%b\n' "$NOTES"
+            fi
+          } > dist/release-body.md
+          echo "发布正文（前 12 行）："
+          head -12 dist/release-body.md
+
       - name: 发布 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          body: |
-            ## APK 说明
-
-            | 包名 | ABI | 适用设备 |
-            |---|---|---|
-            | AiVerse-arm64-v${{ steps.version.outputs.full }}.apk | arm64-v8a | 新手机（推荐） |
-            | AiVerse-x86_64-v${{ steps.version.outputs.full }}.apk | x86_64 | 模拟器 / x86 设备 |
-            | AiVerse-universal-v${{ steps.version.outputs.full }}.apk | arm64-v8a + x86_64 | 通用包：同时含两套镜像，兼容所有设备，体积约为单架构包两倍 |
+          body_path: dist/release-body.md
           # 正式版不使用 GitHub 自动生成的 "What's Changed"：
           # 那段是按 PR 作者归属拼出来的（PR 由贡献账号提就会署那个账号），
-          # 正式版公告只用上面手写的正文。测试版（nightly-build.yml）保留自动列表。
+          # 正式版公告只用手写/文件里的正文。测试版（nightly-build.yml）保留自动列表。
           generate_release_notes: false
           prerelease: ${{ steps.version.outputs.prerelease }}
           name: "v${{ steps.version.outputs.full }}"
