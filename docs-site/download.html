@@ -206,6 +206,22 @@ html.dark .icon-btn .i-moon{display:none}
 .release-note table{border-collapse:collapse;width:100%;margin-bottom:var(--s-3)}
 .release-note th,.release-note td{border-bottom:1px solid var(--border);text-align:left;padding:var(--s-1) var(--s-2)}
 .release-note hr{border:0;border-top:1px solid var(--border);margin:var(--s-3) 0}
+/* GitHub 风格告警卡片（> [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION]） */
+.release-note .md-alert{--ac:var(--text-2);--ac-bg:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--ac);background:var(--ac-bg);border-radius:var(--r-1);padding:var(--s-2) var(--s-3);margin-bottom:var(--s-3)}
+.release-note .md-alert-title{font-size:var(--fs-xs);font-weight:600;letter-spacing:.04em;color:var(--ac);margin-bottom:2px}
+.release-note .md-alert-body{font-size:var(--fs-xs);color:var(--text-2);line-height:1.6}
+.release-note .md-alert--note{--ac:var(--accent);--ac-bg:rgba(52,81,178,.07)}
+.release-note .md-alert--tip{--ac:#2c6a4d;--ac-bg:#e3eee7}
+.release-note .md-alert--important{--ac:#6a3fa0;--ac-bg:#ece4f6}
+.release-note .md-alert--warning{--ac:#86571d;--ac-bg:#f2e7d3}
+.release-note .md-alert--caution{--ac:#a23b2e;--ac-bg:#f6e6e1}
+html.dark .release-note .md-alert{border-color:var(--border)}
+html.dark .release-note .md-alert--note{--ac:#8ea3ec;--ac-bg:rgba(142,163,236,.12)}
+html.dark .release-note .md-alert--tip{--ac:#6fcf9f;--ac-bg:rgba(111,207,159,.13)}
+html.dark .release-note .md-alert--important{--ac:#b79ae8;--ac-bg:rgba(183,154,232,.13)}
+html.dark .release-note .md-alert--warning{--ac:#e2a763;--ac-bg:rgba(226,167,99,.13)}
+html.dark .release-note .md-alert--caution{--ac:#ef8f80;--ac-bg:rgba(239,143,128,.12)}
+.release-note blockquote{margin:0 0 var(--s-3);padding:var(--s-1) var(--s-3);border-left:3px solid var(--border-strong);color:var(--text-2);font-size:var(--fs-xs)}
 
 /* ---------- 右栏：操作层 ---------- */
 .ops{display:flex;flex-direction:column;min-height:0;min-width:0}
@@ -632,8 +648,28 @@ body{min-height:100dvh;padding:clamp(12px,3vw,36px);background:radial-gradient(e
         out.push(l+'</'+tag+'>'); continue;
       }
       if(/^\s*$/.test(line)){ i++; continue; }
+      // 引用块：连续以 > 开头的行（含 GitHub 告警卡片 > [!NOTE] 等）
+      if(/^\s*>/.test(line)){
+        var q=[];
+        while(i<lines.length && /^\s*>/.test(lines[i])){
+          q.push(lines[i].replace(/^\s*>\s?/,'')); i++;
+        }
+        var alertM=(q[0]||'').match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i);
+        if(alertM){
+          var type=alertM[1].toUpperCase();
+          var rest=alertM[2]||'';
+          if(/^\s*$/.test(rest)) q.shift();
+          else q[0]=rest;
+          var body=q.filter(function(x){return !/^\s*$/.test(x);}).map(inline).join('<br>');
+          out.push('<div class="md-alert md-alert--'+type.toLowerCase()+'"><div class="md-alert-title">'+type+'</div><div class="md-alert-body">'+body+'</div></div>');
+        } else {
+          var qbody=q.filter(function(x){return !/^\s*$/.test(x);}).map(inline).join('<br>');
+          out.push('<blockquote>'+qbody+'</blockquote>');
+        }
+        continue;
+      }
       var para=[];
-      while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[i]) && !/^#{1,6}\s/.test(lines[i]) && lines[i].indexOf('|')===-1){
+      while(i<lines.length && !/^\s*$/.test(lines[i]) && !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[i]) && !/^#{1,6}\s/.test(lines[i]) && !/^\s*>/.test(lines[i]) && lines[i].indexOf('|')===-1){
         para.push(lines[i]); i++;
       }
       if(para.length){ out.push('<p>'+para.map(inline).join('<br>')+'</p>'); }

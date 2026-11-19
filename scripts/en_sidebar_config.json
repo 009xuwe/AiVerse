@@ -1,0 +1,110 @@
+{
+  "nav": [
+    { "text": "Guide", "link": "/en/guide/quick-start", "activeMatch": "/en/guide/" },
+    { "text": "Advanced", "link": "/en/advanced/build-android-app", "activeMatch": "/en/advanced/" },
+    { "text": "Download", "link": "https://aivapp.cn/en/download" },
+    { "text": "User Agreement", "link": "/en/terms" },
+    { "text": "Privacy", "link": "/en/privacy" }
+  ],
+  "sidebar": {
+    "/en/guide/": [
+      {
+        "text": "Getting Started",
+        "items": [
+          { "text": "Quick Start", "link": "/en/guide/quick-start" },
+          { "text": "Feature Overview", "link": "/en/guide/overview" },
+          { "text": "Free Vendors", "link": "/en/guide/free-providers" }
+        ]
+      },
+      {
+        "text": "Core Workflows",
+        "items": [
+          { "text": "Chat Interface Tour", "link": "/en/guide/chat" },
+          { "text": "Four Modes (Build / Plan / Auto / Expert)", "link": "/en/guide/modes" },
+          { "text": "Session Goal", "link": "/en/guide/goal" },
+          { "text": "Checkpoints & Undo", "link": "/en/guide/checkpoint" },
+          { "text": "Terminal", "link": "/en/guide/terminal" },
+          { "text": "Built-in Browser", "link": "/en/guide/browser" },
+          { "text": "File Browsing & Code Editing", "link": "/en/guide/files" },
+          { "text": "Git Version Control", "link": "/en/guide/git" },
+          { "text": "Tablet & Large Screen", "link": "/en/guide/tablet" }
+        ]
+      },
+      {
+        "text": "Models & Usage",
+        "items": [
+          { "text": "AI Vendors & Models", "link": "/en/guide/providers" },
+          { "text": "Default & Dedicated Models", "link": "/en/guide/default-models" },
+          { "text": "Token Stats & Cost", "link": "/en/guide/token-stats" }
+        ]
+      },
+      {
+        "text": "Runtime Environment",
+        "items": [
+          { "text": "Container & Images", "link": "/en/guide/container" },
+          { "text": "Remote SSH Mode", "link": "/en/guide/remote-ssh" },
+          { "text": "Workspace Sync", "link": "/en/guide/sync" },
+          { "text": "Network Proxy", "link": "/en/guide/proxy" }
+        ]
+      },
+      {
+        "text": "Extensions",
+        "items": [
+          { "text": "MCP Servers", "link": "/en/guide/mcp" },
+          { "text": "Skills", "link": "/en/guide/skills" },
+          { "text": "Subagents", "link": "/en/guide/subagent" },
+          { "text": "Shizuku Tools", "link": "/en/guide/shizuku" },
+          { "text": "Custom Prompts", "link": "/en/guide/custom-prompts" },
+          { "text": "Memory & Project Rules", "link": "/en/guide/memory" }
+        ]
+      },
+      {
+        "text": "Settings & Maintenance",
+        "items": [
+          { "text": "General Settings", "link": "/en/guide/general" },
+          { "text": "Appearance & Language", "link": "/en/guide/appearance" },
+          { "text": "Tool Authorization", "link": "/en/guide/permissions" },
+          { "text": "System Permissions", "link": "/en/guide/app-permissions" },
+          { "text": "Background Run", "link": "/en/guide/background-run" },
+          { "text": "Logs & Troubleshooting", "link": "/en/guide/logs" },
+          { "text": "Common Error Messages", "link": "/en/guide/error-codes" },
+          { "text": "Storage", "link": "/en/guide/storage" },
+          { "text": "Backup & Restore", "link": "/en/guide/backup" },
+          { "text": "About & Updates", "link": "/en/guide/about" },
+          { "text": "User Agreement", "link": "/en/terms" },
+          { "text": "Privacy Policy", "link": "/en/privacy" }
+        ]
+      }
+    ],
+    "/en/advanced/": [
+      {
+        "text": "Environment Setup",
+        "items": [
+          { "text": "Build Android Apps in the Container", "link": "/en/advanced/build-android-app" },
+          { "text": "Build Flutter Apps in the Container", "link": "/en/advanced/build-flutter-app" },
+          { "text": "Build a Flutter Release APK in the Container", "link": "/en/advanced/build-flutter-release" },
+          { "text": "Install Playwright Browser Automation", "link": "/en/advanced/playwright-mcp" }
+        ]
+      },
+      {
+        "text": "Device Debugging",
+        "items": [
+          { "text": "Debug Other Devices over Wireless adb", "link": "/en/advanced/adb-wireless-debug" }
+        ]
+      },
+      {
+        "text": "Models & Reasoning",
+        "items": [
+          { "text": "Thinking Effort & Disabling Thinking", "link": "/en/advanced/reasoning-modes" }
+        ]
+      },
+      {
+        "text": "Extension Development",
+        "items": [
+          { "text": "Custom Dashboard Cards", "link": "/en/advanced/dashboard-cards" },
+          { "text": "Plugin Development Guide", "link": "/en/advanced/plugin-dev" }
+        ]
+      }
+    ]
+  }
+}
