@@ -206,7 +206,7 @@ internal fun ChatHeader(
                     if (sessionId != null && onRenameSession != null) {
                         PressableSurface(
                             onClick = { showRenameDialog = true },
-                            shape = RoundedCornerShape(Radius.sm),
+                            shape = RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner),
                             contentPadding = PaddingValues(
                                 horizontal = if (hyperOS) Spacing.sm else Spacing.xs,
                                 vertical = Spacing.xs
@@ -272,7 +272,7 @@ internal fun ChatHeader(
                         PressableSurface(
                             onClick = { showModelSheet = true },
                             enabled = onSelectModel != null,
-                            shape = RoundedCornerShape(Radius.sm),
+                            shape = RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner),
                             contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs)
                         ) {
                             Row(
@@ -421,7 +421,7 @@ private fun RoleSwitcherPill(
     } else {
         PressableSurface(
             onClick = onClick,
-            shape = RoundedCornerShape(Radius.sm),
+            shape = RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner),
             contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs)
         ) {
             Row(
@@ -588,7 +588,7 @@ private fun ComicUsageBubble(
 ) {
     Surface(
         modifier = Modifier.widthIn(max = 340.dp),
-        shape = RoundedCornerShape(Radius.lg),
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 6.dp,
         // 边框统一收在浮窗这一层：内层明细卡不再描边，避免「外一层里一层」双边框。
@@ -684,7 +684,7 @@ private fun CompactHeaderIconButton(
     Box(
         modifier = modifier
             .size(32.dp)
-            .clip(RoundedCornerShape(Radius.sm))
+            .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -940,7 +940,7 @@ private fun WelcomeEntryCard(
         modifier = modifier
             .semantics { contentDescription = cardDesc }
             .alpha(if (enabled) 1f else 0.45f),
-        shape = RoundedCornerShape(Radius.md),
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         contentPadding = PaddingValues(Spacing.md)
     ) {
@@ -989,7 +989,7 @@ private fun WelcomeEntryIcon(entry: WelcomeEntry) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(Radius.sm))
+                        .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
                 )
             }
         }

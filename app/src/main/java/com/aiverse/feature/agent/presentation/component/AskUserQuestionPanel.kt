@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aiverse.core.theme.Radius
+import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
 import com.aiverse.feature.agent.domain.tool.question.PendingUserQuestion
 import com.aiverse.feature.agent.domain.tool.question.QuestionItem
@@ -114,7 +115,7 @@ fun AskUserQuestionPanel(
             // 避免与列表 padding 叠加导致面板比消息气泡/输入框窄。
             .padding(vertical = Spacing.xs),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(Radius.md),
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
@@ -124,7 +125,7 @@ fun AskUserQuestionPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.sm))
+                    .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
                     .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -247,7 +248,7 @@ private fun QuestionCard(
             if (item.header.isNotBlank()) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(Radius.xs)
+                    shape = RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner)
                 ) {
                     Text(
                         text = item.header,
@@ -283,7 +284,7 @@ private fun QuestionCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.xs))
+                    .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
                     .clickable {
                         val newSelection = if (item.multiSelect) {
                             if (isSelected) selected - label else selected + label
@@ -343,7 +344,7 @@ private fun QuestionCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 28.dp),
-                    shape = RoundedCornerShape(Radius.mdLarge),
+                    shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
                     color = appTextFieldColors().unfocusedContainerColor,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {

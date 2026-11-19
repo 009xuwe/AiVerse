@@ -880,7 +880,7 @@ internal fun DiffExpandToggle(expanded: Boolean, hiddenCount: Int, onToggle: () 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.sm))
+            .clip(RoundedCornerShape(LocalUIDensityTokens.current.cardCorner))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 // 与其它折叠行一致：按压指示器关掉，只留箭头翻转 + 文案切换做反馈。

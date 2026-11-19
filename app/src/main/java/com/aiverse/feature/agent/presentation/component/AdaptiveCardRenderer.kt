@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aiverse.core.theme.Radius
+import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.semanticColors
 import com.aiverse.feature.settings.domain.model.AdaptiveCardAction
@@ -265,7 +266,7 @@ private fun RenderContainer(
 ) {
     val (bgColor, borderCol) = resolveContainerColors(container.style)
     val topSpacing = resolveSpacing(container.spacing)
-    val cornerRadius = container.cornerRadiusDp?.dp ?: Radius.sm
+    val cornerRadius = container.cornerRadiusDp?.dp ?: LocalUIDensityTokens.current.cardCorner
     val shape = RoundedCornerShape(cornerRadius)
     val innerGap = container.gapDp?.dp ?: Spacing.xs
     val defaultPadding = if (container.style == ContainerStyle.DEFAULT) {
@@ -602,9 +603,9 @@ private fun RenderBadge(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(Radius.xs))
+            .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
             .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(Radius.xs))
+            .border(1.dp, borderColor, RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
             .padding(horizontal = 6.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -934,7 +935,7 @@ private fun RenderPillsTabBar(
     contentColor: CardColor?,
     cornerRadiusDp: Int?
 ) {
-    val pillRadius = cornerRadiusDp?.dp ?: Radius.sm
+    val pillRadius = cornerRadiusDp?.dp ?: LocalUIDensityTokens.current.cardCorner
     val selectedBg = indicatorColor?.let { resolveColor(it, false) }
         ?: MaterialTheme.colorScheme.primaryContainer
     val selectedFg = indicatorColor?.let { resolveColor(it, false) }
@@ -1031,11 +1032,11 @@ private fun RenderActionButton(
 
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(Radius.sm))
+            .clip(RoundedCornerShape(LocalUIDensityTokens.current.cardCorner))
             .applyMargin(element.margin)
             .applyPadding(element.padding)
             .clickable { if (isRefresh) onRefresh() else action?.let(onAction) },
-        shape = RoundedCornerShape(Radius.sm),
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         color = effectiveBg,
         border = if (element.style == ContainerStyle.DEFAULT) null
             else androidx.compose.foundation.BorderStroke(1.dp, fgColor.copy(alpha = 0.3f))

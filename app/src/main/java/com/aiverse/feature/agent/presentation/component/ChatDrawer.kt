@@ -101,6 +101,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aiverse.core.theme.FileNameDisplay
+import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.FileTreeDisplayPrefs
 import com.aiverse.core.theme.FileTreeIndentDensity
 import com.aiverse.core.theme.Radius
@@ -315,7 +316,7 @@ fun ChatDrawerContent(
         if (selectedTab == 0 && isSelectionMode) {
             Surface(
                 color = MaterialTheme.semanticColors.cardSurface,
-                shape = RoundedCornerShape(Radius.mdLarge),
+                shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 CompositionLocalProvider(
@@ -1534,7 +1535,7 @@ private fun FileBrowserTab(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
-                shape = RoundedCornerShape(Radius.xl),
+                shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 8.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)

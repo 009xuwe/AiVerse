@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aiverse.R
 import com.aiverse.core.theme.Radius
+import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.glassOr
 import com.aiverse.core.theme.semanticColors
@@ -111,7 +112,7 @@ fun TodoDashboardBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = Spacing.xs),
-        shape = RoundedCornerShape(Radius.lg),
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         color = cardBgColor,
         border = BorderStroke(1.dp, borderColor)
     ) {
@@ -124,7 +125,7 @@ fun TodoDashboardBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.sm))
+                    .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
                     .clickable { isExpanded = !isExpanded }
                     .padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -200,7 +201,7 @@ fun TodoDashboardBar(
                     Box(
                         modifier = Modifier
                             .size(24.dp)
-                            .clip(RoundedCornerShape(Radius.sm))
+                            .clip(RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner))
                             .clickable { dismissed = true },
                         contentAlignment = Alignment.Center
                     ) {
