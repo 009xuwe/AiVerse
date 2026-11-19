@@ -348,7 +348,7 @@ private fun SubAgentRow(
                     text = entry.description.ifBlank { stringResource(R.string.mcp_no_description) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

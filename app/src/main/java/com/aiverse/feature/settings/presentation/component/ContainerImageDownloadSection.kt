@@ -417,7 +417,7 @@ private fun DownloadImageRow(
                         text = entry.description.ifBlank { if (isDownloaded) stringResource(R.string.container_download_done) else "" },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 2.dp)
                     )
