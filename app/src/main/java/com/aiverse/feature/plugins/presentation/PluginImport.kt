@@ -20,10 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,26 +29,14 @@ import com.aiverse.R
 import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.ui.AdaptiveModalBottomSheet
-import com.aiverse.core.ui.AppTextField
-import com.aiverse.core.ui.dialogTextFieldColors
 import com.aiverse.feature.plugins.domain.PluginError
 import com.aiverse.feature.plugins.domain.PluginErrorCode
 import com.aiverse.feature.settings.presentation.component.SettingsGroup
 import com.aiverse.feature.settings.presentation.component.SettingsGroupHeader
-import java.net.URI
 import java.util.Locale
 
 /** 单次最多逐条列出的导入问题数，其余折叠成「还有 N 个问题」。 */
 private const val MAX_LISTED_ERRORS = 5
-
-/** 只做明确的等价归一：去空白、末尾斜杠与 .git 后缀，scheme/host 小写。 */
-private fun normalizeRepositoryInput(raw: String): String {
-    val text = raw.trim().trimEnd('/').removeSuffix(".git")
-    return runCatching {
-        val uri = URI(text)
-        "${uri.scheme.lowercase()}://${uri.host.lowercase()}${uri.path.orEmpty().trimEnd('/')}"
-    }.getOrDefault(text)
-}
 
 /**
  * 导入流程的全部弹层：读取中、失败列表、预览与授权确认。放在设置页底部与其他对话框并列。
@@ -128,11 +112,6 @@ private fun PluginPreviewSheet(
     val preview = state.preview
     val manifest = preview.manifest
     val languageTag = Locale.getDefault().toLanguageTag()
-    val expectedRepository = state.expectedRepository
-    val requiresManualRepository = expectedRepository != null && !state.officialSource
-    var repositoryInput by rememberSaveable(state.preview.token) { mutableStateOf("") }
-    val repositoryMatches = !requiresManualRepository ||
-        normalizeRepositoryInput(repositoryInput) == normalizeRepositoryInput(expectedRepository.orEmpty())
 
     AdaptiveModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -196,40 +175,6 @@ private fun PluginPreviewSheet(
                 )
             }
 
-            if (requiresManualRepository) {
-                SettingsGroupHeader(text = stringResource(R.string.plugins_install_repository_header))
-                Text(
-                    text = stringResource(R.string.plugins_install_repository_reason),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = expectedRepository.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                AppTextField(
-                    value = repositoryInput,
-                    onValueChange = { repositoryInput = it },
-                    label = stringResource(R.string.plugins_install_repository_label),
-                    // TODO: 仓库地址占位为语言无关的 URL 格式示例，无需本地化；如需统一走 strings 补键。
-                    placeholder = "https://github.com/owner/repo",
-                    colors = dialogTextFieldColors(),
-                    isError = repositoryInput.isNotBlank() && !repositoryMatches,
-                    supportingText = {
-                        Text(
-                            text = stringResource(
-                                if (repositoryInput.isBlank() || repositoryMatches) {
-                                    R.string.plugins_install_repository_hint
-                                } else {
-                                    R.string.plugins_install_repository_mismatch
-                                }
-                            )
-                        )
-                    }
-                )
-            }
-
             state.error?.let { error ->
                 Text(
                     text = pluginErrorMessage(error),
@@ -247,7 +192,7 @@ private fun PluginPreviewSheet(
                     Text(stringResource(R.string.common_cancel))
                 }
                 Spacer(Modifier.width(Spacing.sm))
-                Button(onClick = onInstall, enabled = !state.installing && repositoryMatches) {
+                Button(onClick = onInstall, enabled = !state.installing) {
                     if (state.installing) {
                         CircularProgressIndicator(modifier = Modifier.size(t.scale(18)), strokeWidth = t.scale(2))
                     } else {

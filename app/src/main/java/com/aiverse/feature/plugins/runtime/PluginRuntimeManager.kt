@@ -569,11 +569,17 @@ class PluginRuntimeManager @Inject constructor(
     }
 
     /** 本地默认容器；SSH 模式下插件进程仍跑在手机端，与 MCP stdio 一致。 */
+    /**
+     * 插件进程用哪个容器跑。
+     *
+     * 必须跟终端、工具链用同一个：读 [ContainerSettingsRepository.activeProfileFlow]（当前激活的容器）。
+     * 之前读的是 defaultContainerIdFlow（远程模式的默认容器），用户把自定义镜像设成当前容器后，
+     * 这里仍指向内置 Alpine，于是终端能进、插件却报「容器尚未初始化」。
+     * 非本地 proot（远程 SSH 等）回退内置 Alpine，与旧行为一致。
+     */
     private suspend fun runtimeProfile(): ContainerProfile {
-        val id = containerSettingsRepository.defaultContainerIdFlow.first()
-        val profiles = containerSettingsRepository.customProfilesFlow.first()
-        return profiles.firstOrNull { it.id == id && it.mode == ExecutionMode.LOCAL_PROOT }
-            ?: ContainerProfile.BUILTIN_ALPINE
+        val active = containerSettingsRepository.activeProfileFlow.first()
+        return if (active.mode == ExecutionMode.LOCAL_PROOT) active else ContainerProfile.BUILTIN_ALPINE
     }
 
     /**
