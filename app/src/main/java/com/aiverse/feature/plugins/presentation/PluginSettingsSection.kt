@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
@@ -79,7 +81,9 @@ import java.io.File
 @Composable
 internal fun PluginSettingsSection(
     onImport: (() -> Unit) -> Unit = {},
-    onOpenSettings: (() -> Unit) -> Unit = {}
+    onOpenSettings: (() -> Unit) -> Unit = {},
+    /** 详情页是否占屏：为 true 时 SettingsScreen 隐藏外层分区顶栏，避免与外层「插件」栏叠成两条。 */
+    onDetailVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     val viewModel: PluginsViewModel = hiltViewModel()
     // 商店详情页的分享走商店 ViewModel（下载/缓存插件包由它复用 PluginIndexClient）。
@@ -202,6 +206,11 @@ internal fun PluginSettingsSection(
     // 详情/商店详情/开发详情显示时，系统返回应先回插件列表（清选中状态），
     // 而不是冒泡到 SettingsScreen 直接退出插件分区（之前返回会跳设置主菜单，且状态不清导致再点插件卡详情、需重启）。
     val inDetail = selectedPlugin != null || selectedStoreItem != null || selectedDevProject != null
+    // 详情占屏时通知父级把分区顶栏让位，保证整页只有一条顶栏（返回与「更多」都挂在详情那条上）。
+    LaunchedEffect(inDetail) { onDetailVisibilityChanged(inDetail) }
+    DisposableEffect(Unit) {
+        onDispose { onDetailVisibilityChanged(false) }
+    }
     BackHandler(enabled = inDetail) {
         selectedPluginId = null
         selectedStoreItem = null
@@ -217,6 +226,7 @@ internal fun PluginSettingsSection(
         Column(modifier = Modifier.fillMaxSize()) {
             PluginBackBar(
                 onBack = { selectedPluginId = null },
+                title = selectedPlugin.displayName(languageTag),
                 trailing = {
                     // 详情页顶栏「更多」：分享/导出（打包 zip 走系统分享，复用导出结果流）。
                     var detailMoreExpanded by remember { mutableStateOf(false) }
@@ -254,10 +264,6 @@ internal fun PluginSettingsSection(
             PluginDetailSection(
                 plugin = selectedPlugin,
                 onToggleEnabled = { viewModel.setEnabled(selectedPlugin.id, it) },
-                onExport = {
-                    exportToSaf = true
-                    viewModel.exportPlugin(selectedPlugin.id)
-                },
                 bridgeFactory = { page, post, onClose ->
                     viewModel.createWebBridge(
                         page = page,
@@ -286,7 +292,10 @@ internal fun PluginSettingsSection(
     val storeItem = selectedStoreItem
     if (storeItem != null) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PluginBackBar(onBack = { selectedStoreItem = null })
+            PluginBackBar(
+                onBack = { selectedStoreItem = null },
+                title = storeItem.plugin.name.resolve(languageTag)
+            )
             PluginStoreDetailSection(
                 item = storeItem,
                 onShowPreview = viewModel::showPreview
@@ -298,7 +307,10 @@ internal fun PluginSettingsSection(
     val devProject = selectedDevProject
     if (devProject != null) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PluginBackBar(onBack = { selectedDevProject = null })
+            PluginBackBar(
+                onBack = { selectedDevProject = null },
+                title = devProject.name?.resolve(languageTag) ?: devProject.dirName
+            )
             PluginDevDetailSection(
                 project = devProject,
                 plugins = plugins,
@@ -387,6 +399,7 @@ internal fun PluginSettingsSection(
 @Composable
 internal fun PluginBackBar(
     onBack: () -> Unit,
+    title: String? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
     Row(
@@ -400,6 +413,16 @@ internal fun PluginBackBar(
                 imageVector = FeatherIcons.ArrowLeft,
                 contentDescription = stringResource(R.string.common_back),
                 tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        // 标题：外层分区顶栏在详情页让位后，详情这里要自己把名字写出来。
+        if (title != null) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         // trailing 顶到右侧；默认 null（已装/开发详情页不传，行为不变）。

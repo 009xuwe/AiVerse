@@ -862,7 +862,6 @@ private fun PluginRow(
 internal fun PluginDetailSection(
     plugin: InstalledPlugin,
     onToggleEnabled: (Boolean) -> Unit,
-    onExport: () -> Unit = {},
     bridgeFactory: ((page: PluginPage, post: (String) -> Unit, onClosePage: () -> Unit) -> PluginWebBridge)? = null,
     onClosePage: () -> Unit = {},
     dependencyState: PluginDependencyUiState? = null,
@@ -902,7 +901,6 @@ internal fun PluginDetailSection(
                 plugin = plugin,
                 languageTag = languageTag,
                 onToggleEnabled = onToggleEnabled,
-                onExport = onExport,
                 dependencyState = dependencyState,
                 onPrepareDependencies = onPrepareDependencies,
                 shizukuGranted = shizukuGranted,
@@ -935,7 +933,6 @@ private fun PluginNativeConfigContent(
     plugin: InstalledPlugin,
     languageTag: String,
     onToggleEnabled: (Boolean) -> Unit,
-    onExport: () -> Unit = {},
     dependencyState: PluginDependencyUiState? = null,
     onPrepareDependencies: () -> Unit = {},
     shizukuGranted: Boolean = false,
@@ -998,26 +995,6 @@ private fun PluginNativeConfigContent(
                     onCheckedChange = onToggleEnabled,
                     enabled = plugin.manifest != null && plugin.content != null
                 )
-            }
-        }
-
-        // 导出：把已安装插件打包为可再导入的 zip 并拉起系统分享（测试）
-        SettingsGroup {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.lg, vertical = t.listCellPaddingVertical),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.plugins_export_hint),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onExport) {
-                    Text(text = stringResource(R.string.plugins_export_action))
-                }
             }
         }
 

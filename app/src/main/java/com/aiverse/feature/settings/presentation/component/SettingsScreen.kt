@@ -950,10 +950,18 @@ fun SettingsScreen(
             // 它的构造即触发一次全盘统计，不能提到 SettingsScreen 顶层（那样每次进设置页都会扫盘）。
             val storageViewModel: com.aiverse.feature.settings.presentation.StorageViewModel? =
                 if (current == SettingsSection.Storage) androidx.hilt.navigation.compose.hiltViewModel() else null
+            // 插件详情（已装/商店/开发）自己有一条带返回和「更多」的顶栏，外层分区顶栏这时让位，
+            // 否则会叠成两条（issue #167）。
+            var pluginDetailOpen by remember { mutableStateOf(false) }
+            LaunchedEffect(current) {
+                if (current != SettingsSection.Plugins && current != SettingsSection.PluginRepo) {
+                    pluginDetailOpen = false
+                }
+            }
             Scaffold(
         containerColor = settingsPageBackground(),
         topBar = {
-            TopAppBar(
+            if (!pluginDetailOpen) TopAppBar(
                 title = {
                     Text(
                         text = if (current == SettingsSection.SkillDetail) {
@@ -1828,11 +1836,13 @@ fun SettingsScreen(
                 }
                 SettingsSection.Plugins -> PluginSettingsSection(
                     onImport = { pluginImportTrigger = it },
-                    onOpenSettings = { pluginSettingsTrigger = it }
+                    onOpenSettings = { pluginSettingsTrigger = it },
+                    onDetailVisibilityChanged = { pluginDetailOpen = it }
                 )
                 SettingsSection.PluginRepo -> PluginSettingsSection(
                     onImport = { pluginImportTrigger = it },
-                    onOpenSettings = { pluginSettingsTrigger = it }
+                    onOpenSettings = { pluginSettingsTrigger = it },
+                    onDetailVisibilityChanged = { pluginDetailOpen = it }
                 )
                 SettingsSection.SearchProvider -> {
                     val searchVm: com.aiverse.feature.search.presentation.SearchProviderViewModel =
