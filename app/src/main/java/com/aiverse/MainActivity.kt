@@ -112,8 +112,7 @@ import com.aiverse.feature.agent.presentation.component.LocalChatAnimationsEnabl
 import com.aiverse.feature.agent.presentation.component.chatImageLoader
 import com.aiverse.feature.agent.presentation.component.mediaFileResolver
 import com.aiverse.feature.agent.presentation.component.openSentAttachment
-import com.aiverse.feature.agreement.presentation.AgreementGate
-import com.aiverse.feature.backup.presentation.BetaHandoffPromptHost
+import com.aiverse.feature.launch.presentation.LaunchGate
 import com.aiverse.feature.editor.presentation.CodeEditorScreen
 import com.aiverse.feature.editor.presentation.EditorLeaveGuard
 import com.aiverse.feature.browser.presentation.BrowserScreen
@@ -135,12 +134,10 @@ import com.aiverse.feature.settings.data.repository.BackgroundMode
 import com.aiverse.feature.settings.data.repository.BackgroundSettingsRepository
 import com.aiverse.feature.settings.data.repository.ScreenOnSettingsRepository
 import com.aiverse.feature.settings.data.repository.ThemeSettingsRepository
-import com.aiverse.feature.settings.presentation.GithubStarPromptViewModel
 import com.aiverse.feature.settings.presentation.SettingsViewModel
 import com.aiverse.feature.settings.presentation.FetchState
 import com.aiverse.feature.settings.presentation.UpdateCheckUiState
 import com.aiverse.feature.settings.presentation.component.githubReleaseUrl
-import com.aiverse.feature.settings.presentation.component.GithubStarDialog
 import com.aiverse.feature.settings.presentation.component.SettingsScreen
 import com.aiverse.feature.settings.presentation.component.UpdateCheckDialog
 import com.aiverse.feature.settings.presentation.component.openUrl
@@ -202,6 +199,10 @@ class MainActivity : ComponentActivity() {
     /** 首次启动引导的进度持久化。 */
     @Inject
     lateinit var onboardingRepository: com.aiverse.feature.onboarding.data.OnboardingRepository
+
+    /** 启动欢迎向导（协议 / 权限 / 外观 / 测试版导入 / 点星）的完成状态。 */
+    @Inject
+    lateinit var launchWizardRepository: com.aiverse.feature.launch.data.LaunchWizardRepository
 
     @Inject
     lateinit var agreementRepository: com.aiverse.feature.agreement.data.AgreementRepository
@@ -399,25 +400,30 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        AgreementGate(repository = agreementRepository) { agreementAccepted ->
+                        // 启动向导：首次启动走完 4/5 页欢迎向导后才进主界面，
+                        // 取代以前协议弹窗 + 测试版导入弹窗 + Star 弹窗层层叠加的写法。
+                        LaunchGate(
+                            launchRepository = launchWizardRepository,
+                            agreementRepository = agreementRepository,
+                            themeSettings = themeSettings,
+                            betaHandoffRepository = betaHandoffRepository,
+                            onExit = {
+                                finishAffinity()
+                                exitProcess(0)
+                            }
+                        ) {
                             AppNavigation(
                                 onboardingRepository = onboardingRepository,
-                                agreementAccepted = agreementAccepted,
+                                agreementAccepted = true,
                                 isContainerReady = isContainerReady,
                                 webMessageBridge = this@MainActivity.webMessageBridge,
                                 pluginUpdateNotifier = this@MainActivity.pluginUpdateNotifier,
                                 fileTreeDisplayPrefs = fileTreeDisplayPrefs
                             )
-                            if (agreementAccepted) {
-                                // 全局凭据弹窗：覆盖所有页面，命令行 git 缺凭据在任意页面都能弹。
-                                com.aiverse.feature.credentials.presentation.component.GlobalCredentialDialogHost(
-                                    bridge = credentialRequestBridge
-                                )
-                            }
-                            if (agreementAccepted) {
-                                // 测试版包 + 本机已装正式版 + 自身无数据时，引导从正式版导入数据（issue #97）。
-                                BetaHandoffPromptHost(repository = betaHandoffRepository)
-                            }
+                            // 全局凭据弹窗：覆盖所有页面，命令行 git 缺凭据在任意页面都能弹。
+                            com.aiverse.feature.credentials.presentation.component.GlobalCredentialDialogHost(
+                                bridge = credentialRequestBridge
+                            )
                         }
                         // beta 包全局水印，置于最上层，不拦截触摸。
                         BetaWatermark()
@@ -515,16 +521,8 @@ fun AppNavigation(
     val onboardingRegistry = remember { OnboardingTargetRegistry() }
     var showBackConfirm by remember { mutableStateOf(false) }
 
-    // 启动 GitHub Star 提示弹窗：协议已同意且首次引导结束后弹出（未永久关闭时，每次启动都会提醒）。
-    // 勾选「不再显示」并关闭后由 GithubStarPromptViewModel 持久化，下次启动不再弹。
-    val starPromptViewModel: GithubStarPromptViewModel = hiltViewModel()
-    val starDismissed by starPromptViewModel.dismissed.collectAsStateWithLifecycle()
-    var showStarDialog by remember { mutableStateOf(false) }
-    LaunchedEffect(agreementAccepted, onboardingUiState.active, starDismissed) {
-        if (agreementAccepted && !onboardingUiState.active && !starDismissed) {
-            showStarDialog = true
-        }
-    }
+    // 点星提示已并入启动欢迎向导（最后一页），启动时不再额外弹窗，
+    // 避免「向导 + Star 弹窗 + 更新弹窗」同时叠加。
     // 步骤二容器环境就绪（provision 完成）：就绪前不显示「按左上角返回」引导，避免用户被引导去返回却装不完。
     var containerReady by remember { mutableStateOf(isContainerReady()) }
     LaunchedEffect(onboardingUiState.active) {
@@ -995,7 +993,16 @@ fun AppNavigation(
                                     workspaceViewModel = workspaceViewModel,
                                     onOpenDrawer = { scope.launch { drawerState.open() } },
                                     showMenuButton = !permanentDrawer,
-                                    onNavigateToTerminal = { openWorkbench(WorkbenchPaneKind.TERMINAL) },
+                                    onNavigateToTerminal = {
+                                        openWorkbench(WorkbenchPaneKind.TERMINAL)
+                                        // 引导第 1 步：终端入口现在收在「···」菜单里，
+                                        // 用户从菜单点「终端」也要算完成该步，不能卡住不动。
+                                        if (onboardingUiState.active &&
+                                            onboardingUiState.step == OnboardingStep.OPEN_TERMINAL
+                                        ) {
+                                            onboardingCoordinator.nextStep()
+                                        }
+                                    },
                                     onNavigateToGit = { openWorkbench(WorkbenchPaneKind.GIT) },
                                     onNavigateToBrowser = { openWorkbench(WorkbenchPaneKind.BROWSER) },
                                     onNavigateToHistory = { navController.navigate("history") },
@@ -1481,20 +1488,6 @@ fun AppNavigation(
             )
         }
 
-        // 启动 GitHub Star 提示弹窗：勾选「不再显示」并关闭则持久隐藏，否则下次启动再弹。
-        if (showStarDialog) {
-            GithubStarDialog(
-                onStar = { dontShowAgain ->
-                    if (dontShowAgain) starPromptViewModel.dismiss()
-                    showStarDialog = false
-                    openUrl(context, GITHUB_REPO_URL)
-                },
-                onDismiss = { dontShowAgain ->
-                    if (dontShowAgain) starPromptViewModel.dismiss()
-                    showStarDialog = false
-                }
-            )
-        }
     }
     }
     }

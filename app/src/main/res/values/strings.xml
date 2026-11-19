@@ -2701,7 +2701,7 @@
     <string name="onboarding_done">完成</string>
     <string name="onboarding_step_badge">新手引导 %1$d/%2$d</string>
     <string name="onboarding_open_terminal_title">配置容器环境</string>
-    <string name="onboarding_open_terminal_desc">点右上角「终端」自动安装常见环境；未装项会列出，可输入 aiverse 按序号补装。</string>
+    <string name="onboarding_open_terminal_desc">点右上角「···」菜单里的「终端」进入终端页，会自动安装常见环境；未装项会列出，可输入 aiverse 按序号补装。</string>
     <string name="onboarding_back_from_terminal_title">返回主界面</string>
     <string name="onboarding_back_from_terminal_desc">容器配置完成后，点左上角返回键回到主界面，继续配置你的 AI 模型。</string>
     <string name="onboarding_back_need_install">请先完成终端环境安装（基础工具与运行时），安装成功后才能返回</string>
@@ -3130,4 +3130,49 @@ AI 将自主循环推进（工具自动放行、PLAN 停用），直到达成、
     <string name="plugins_store_upload_author_required">作者名不能为空</string>
     <string name="plugins_store_upload_author_confirm">确认</string>
     <string name="phone_permission_deny_package">安全防护：该应用在「不碰」名单内（银行/支付/券商类），AI 不读也不操作</string>
+
+    <!-- 启动向导（欢迎页 / Welcome wizard） -->
+    <string name="launch_wizard_step_counter">%1$d / %2$d</string>
+    <string name="launch_wizard_exit">退出</string>
+    <string name="launch_wizard_skip">跳过</string>
+    <string name="launch_wizard_next">下一步</string>
+    <string name="launch_wizard_agree">同意并继续</string>
+    <string name="launch_wizard_start">开始使用</string>
+    <string name="launch_page_agreement_title">欢迎使用 AiVerse</string>
+    <string name="launch_page_agreement_subtitle">先把条款确认好，再一次性设置完外观和权限，就可以直接开始。</string>
+    <string name="launch_agreement_footnote">同意后可在「设置 → 关于」中随时查看协议与隐私政策。</string>
+    <string name="launch_page_permission_title">授予系统权限</string>
+    <string name="launch_page_permission_subtitle">以下权限全部可选，跳过也能正常启动；开启后后台运行与通知提醒更完整。</string>
+    <string name="launch_permission_notification_title">通知权限</string>
+    <string name="launch_permission_notification_desc">任务完成、下载结束与后台保活提醒</string>
+    <string name="launch_permission_go">去开启</string>
+    <string name="launch_permission_footnote">随时可以在「设置 → 软件权限」里调整，应用不会因此读取你的私人数据。</string>
+    <string name="launch_page_appearance_title">选择你的外观</string>
+    <string name="launch_page_appearance_subtitle">主题与聊天气泡即时生效，之后可随时在「设置 → 外观设置」修改。</string>
+    <string name="launch_theme_section">深浅模式</string>
+    <string name="launch_bubble_section">聊天气泡</string>
+    <string name="launch_theme_auto">跟随系统</string>
+    <string name="launch_bubble_hint">左右滑动切换样式，上方为实时预览。</string>
+    <string name="launch_page_beta_title">从正式版导入数据</string>
+    <string name="launch_page_beta_subtitle">当前是测试版。检测到本机已安装正式版，可以把正式版的数据直接接过来，不必重新配置。</string>
+    <string name="launch_beta_detected">已检测到正式版</string>
+    <string name="launch_beta_not_detected">未检测到正式版</string>
+    <string name="launch_beta_package">包名</string>
+    <string name="launch_beta_scope">导入范围</string>
+    <string name="launch_beta_scope_items">会话记录 · 应用设置 · 技能与记忆 · MCP 服务</string>
+    <string name="launch_beta_self_data">测试版当前数据</string>
+    <string name="launch_beta_self_data_none">暂无（首次安装）</string>
+    <string name="launch_beta_import">从正式版导入</string>
+    <string name="launch_beta_manual">也可以在「设置 → 备份」里随时手动导入或导出。</string>
+    <string name="launch_page_star_title">给项目点一颗星</string>
+    <string name="launch_page_star_subtitle">如果 AiVerse 帮到了你，给仓库点个 Star 是成本最低的支持方式。</string>
+    <string name="launch_star_repo_desc">Android 上的通用 AI Coding Agent</string>
+    <string name="launch_star_point_1">内置 Alpine Linux 与终端，手机上也能写代码、跑构建</string>
+    <string name="launch_star_point_2">兼容 OpenAI / Anthropic / Gemini，也可接入自定义供应商</string>
+    <string name="launch_star_point_3">模型与密钥都留在本地，不经过第三方服务器</string>
+    <string name="launch_star_action">去 GitHub 点 Star</string>
+    <string name="launch_star_optional_hint">点不点都不影响使用，直接点右下角「开始使用」即可。</string>
+
+    <string name="welcome_guide_container">容器环境指南</string>
+    <string name="welcome_guide_prompts">提示词指南</string>
 </resources>

@@ -25,6 +25,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
@@ -456,7 +464,10 @@ private fun HeaderOverflowMenu(
             icon = FeatherIcons.MoreHorizontal,
             contentDescription = stringResource(R.string.chat_header_more),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            onClick = { menuExpanded = true }
+            onClick = { menuExpanded = true },
+            // 终端入口收进「···」菜单后，新手引导第 1 步要把聚光灯打在「···」本体上，
+            // 否则目标矩形为空，只剩一层遮罩，用户只能手动点下一步。
+            modifier = Modifier.onboardingTarget(OnboardingStep.OPEN_TERMINAL)
         )
         DropdownMenu(
             expanded = menuExpanded,
@@ -815,6 +826,8 @@ internal fun WelcomeState(
     onFillPrompt: (String) -> Unit = {}
 ) {
     val enabledEntries = remember(welcomeEntries) { welcomeEntries.filter { it.enabled } }
+    // 欢迎区两个指南入口：以前是启动时一次弹两个公告，现在改成常驻按钮，想看再点。
+    var guideKind by remember { mutableStateOf<WelcomeGuideKind?>(null) }
     // 按当前时间显示的问候 + 熬夜提醒；每分钟刷新，跨时段自动切换。
     var now by remember { mutableStateOf(Calendar.getInstance()) }
     LaunchedEffect(Unit) {
@@ -881,6 +894,18 @@ internal fun WelcomeState(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // 指南按钮（替代原来的两个公告弹窗）
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                WelcomeGuideChip(stringResource(R.string.welcome_guide_container)) {
+                    guideKind = WelcomeGuideKind.CONTAINER
+                }
+                WelcomeGuideChip(stringResource(R.string.welcome_guide_prompts)) {
+                    guideKind = WelcomeGuideKind.PROMPTS
+                }
+            }
+            guideKind?.let { kind ->
+                WelcomeGuideDialog(kind = kind, onDismiss = { guideKind = null })
+            }
             // 仅渲染已启用入口；全部禁用则只保留提示语。
             if (enabledEntries.isNotEmpty()) {
                 Spacer(Modifier.height(Spacing.md))
@@ -1021,5 +1046,84 @@ private fun WelcomeEntryIcon(entry: WelcomeEntry) {
     }
 }
 
+/** 欢迎区指南入口种类：对应 assets/announcements 下的两篇 md。 */
+private enum class WelcomeGuideKind { CONTAINER, PROMPTS }
 
+/** 欢迎区指南小按钮（替代原先启动时连弹两个公告）。 */
+@Composable
+private fun WelcomeGuideChip(label: String, onClick: () -> Unit) {
+    PressableSurface(
+        onClick = onClick,
+        shape = RoundedCornerShape(LocalUIDensityTokens.current.buttonCorner),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
+/** 指南弹层：读 assets 里的 md，直接用聊天区的 Markdown 渲染器显示。 */
+@Composable
+private fun WelcomeGuideDialog(kind: WelcomeGuideKind, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val isZh = remember { Locale.getDefault().language.startsWith("zh") }
+    val asset = remember(kind, isZh) {
+        val name = if (kind == WelcomeGuideKind.CONTAINER) "container-guide" else "prompts-guide"
+        "announcements/$name.${if (isZh) "zh" else "en"}.md"
+    }
+    val titleRes = if (kind == WelcomeGuideKind.CONTAINER) {
+        R.string.welcome_guide_container
+    } else {
+        R.string.welcome_guide_prompts
+    }
+    val body by produceState(initialValue = "", key1 = asset) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                context.assets.open(asset).bufferedReader().use { it.readText() }
+            }.getOrDefault("")
+        }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(Radius.lg),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Spacing.lg)
+            ) {
+                Text(
+                    text = stringResource(titleRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (body.isBlank()) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    } else {
+                        MarkdownContent(
+                            text = body,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Spacing.sm))
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_close))
+                }
+            }
+        }
+    }
+}

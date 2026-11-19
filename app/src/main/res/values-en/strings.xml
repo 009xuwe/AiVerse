@@ -2702,7 +2702,7 @@
     <string name="onboarding_done">Done</string>
     <string name="onboarding_step_badge">Guide %1$d/%2$d</string>
     <string name="onboarding_open_terminal_title">Set up container</string>
-    <string name="onboarding_open_terminal_desc">Tap Terminal at top-right to install the common environment; type aiverse to add missing items.</string>
+    <string name="onboarding_open_terminal_desc">Open the "···" menu at top-right and tap Terminal to enter the terminal page; the common environment installs automatically, and you can type aiverse to add missing items.</string>
     <string name="onboarding_back_from_terminal_title">Go back</string>
     <string name="onboarding_back_from_terminal_desc">After container setup, tap top-left back to return and continue configuring your AI model.</string>
     <string name="onboarding_back_need_install">Finish the terminal environment installation (base tools &amp; runtimes) before going back</string>
@@ -3131,4 +3131,49 @@ Use `/goal pause`, `/goal resume`, or `/goal clear` anytime.</string>
     <string name="plugins_store_upload_author_required">Author name is required</string>
     <string name="plugins_store_upload_author_confirm">Confirm</string>
     <string name="phone_permission_deny_package">Safety guard: this app is on the "do not touch" list (banking, payment, or brokerage), so the AI neither reads nor operates it</string>
+
+    <!-- Launch wizard (welcome flow) -->
+    <string name="launch_wizard_step_counter">%1$d / %2$d</string>
+    <string name="launch_wizard_exit">Exit</string>
+    <string name="launch_wizard_skip">Skip</string>
+    <string name="launch_wizard_next">Next</string>
+    <string name="launch_wizard_agree">Agree and continue</string>
+    <string name="launch_wizard_start">Get started</string>
+    <string name="launch_page_agreement_title">Welcome to AiVerse</string>
+    <string name="launch_page_agreement_subtitle">Confirm the terms, set appearance and permissions once, then you are ready to go.</string>
+    <string name="launch_agreement_footnote">You can revisit the terms and privacy policy in Settings → About.</string>
+    <string name="launch_page_permission_title">Grant system permissions</string>
+    <string name="launch_page_permission_subtitle">All optional — you can skip and still use the app. Granting them makes background runs and notifications more reliable.</string>
+    <string name="launch_permission_notification_title">Notifications</string>
+    <string name="launch_permission_notification_desc">Task completion, downloads and keep-alive alerts</string>
+    <string name="launch_permission_go">Enable</string>
+    <string name="launch_permission_footnote">You can change these any time in Settings → App permissions. Nothing is read from your device.</string>
+    <string name="launch_page_appearance_title">Pick your look</string>
+    <string name="launch_page_appearance_subtitle">Theme and chat bubbles apply instantly; change them later in Settings → Appearance.</string>
+    <string name="launch_theme_section">Light / dark</string>
+    <string name="launch_bubble_section">Chat bubbles</string>
+    <string name="launch_theme_auto">System</string>
+    <string name="launch_bubble_hint">Swipe to browse styles; the preview above updates live.</string>
+    <string name="launch_page_beta_title">Import from the stable build</string>
+    <string name="launch_page_beta_subtitle">This is the beta build. The stable build is installed on this device, so its data can be carried over directly.</string>
+    <string name="launch_beta_detected">Stable build detected</string>
+    <string name="launch_beta_not_detected">Stable build not found</string>
+    <string name="launch_beta_package">Package</string>
+    <string name="launch_beta_scope">Imported</string>
+    <string name="launch_beta_scope_items">Sessions · Settings · Skills and memory · MCP servers</string>
+    <string name="launch_beta_self_data">Beta data</string>
+    <string name="launch_beta_self_data_none">None (fresh install)</string>
+    <string name="launch_beta_import">Import from stable build</string>
+    <string name="launch_beta_manual">You can also import or export manually in Settings → Backup.</string>
+    <string name="launch_page_star_title">Star the project</string>
+    <string name="launch_page_star_subtitle">If AiVerse helps you, a GitHub star is the cheapest way to support it.</string>
+    <string name="launch_star_repo_desc">A general-purpose AI coding agent on Android</string>
+    <string name="launch_star_point_1">Bundled Alpine Linux and terminal — code and build on your phone</string>
+    <string name="launch_star_point_2">Works with OpenAI, Anthropic, Gemini and custom providers</string>
+    <string name="launch_star_point_3">Models and keys stay on-device, never through a third party</string>
+    <string name="launch_star_action">Star on GitHub</string>
+    <string name="launch_star_optional_hint">Totally optional — just tap "Get started" to continue.</string>
+
+    <string name="welcome_guide_container">Container guide</string>
+    <string name="welcome_guide_prompts">Prompt guide</string>
 </resources>
