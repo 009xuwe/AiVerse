@@ -312,8 +312,8 @@ internal fun SettingsRow(
             Spacer(Modifier.width(Spacing.md))
         }
         Column(modifier = Modifier.weight(1f)) {
-            // 标题与副标题都限一行：右侧值（模型名等）较长时会压缩左侧宽度，
-            // 若不限行标题会被挤成两行（issue #78）；超长时用省略号让位。
+            // 标题保持单行：右侧值（模型名等）较长时会压缩左侧宽度，
+            // 不限行会被挤成两行（issue #78），超长时用省略号让位。
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -323,11 +323,13 @@ internal fun SettingsRow(
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle != null) {
+                // 副标题放宽到两行（issue #166）：说明文字常被单行截断、也看不到全文；
+                // 超过两行仍省略号收尾，避免个别极长文案把行撑得过高。
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
