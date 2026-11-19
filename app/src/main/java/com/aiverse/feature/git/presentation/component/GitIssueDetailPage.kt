@@ -99,9 +99,19 @@ internal fun GitIssueDetailPage(
     onSetAssignees: (List<String>) -> Unit = {},
     onToggleLock: (Boolean) -> Unit = {},
     onLoadComments: () -> Unit = {},
-    onLoadContributors: () -> Unit = {}
+    onLoadContributors: () -> Unit = {},
+    toastMessage: String? = null,
+    onToastConsumed: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    // 本页是全屏覆盖页，父页的 Snackbar host 此时不可见，所以这里自己消费一次性提示，
+    // 让"设置受理人成功 / 关闭 issue 成功"等结果当场在底部弹出。
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onToastConsumed()
+        }
+    }
     BackHandler(onBack = onBack)
     Scaffold(
         containerColor = settingsPageBackground(),

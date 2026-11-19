@@ -1837,6 +1837,8 @@
     <string name="git_toast_no_remote_pull">No remote repository configured, cannot pull</string>
     <string name="git_toast_no_remote_push">No remote repository configured, cannot push</string>
     <string name="git_toast_load_more_failed">Failed to load more: %1$s</string>
+    <string name="git_toast_assignees_set">Assigned to %1$s</string>
+    <string name="git_toast_assignees_cleared">Assignees cleared</string>
     <string name="git_toast_action_success">%1$s successful</string>
     <string name="git_toast_action_failed">%1$s failed: %2$s</string>
     <string name="git_toast_checkout_success">Switched to %1$s</string>

@@ -747,6 +747,7 @@ class GitViewModel @Inject constructor(
     private fun runIssueAction(
         @StringRes nameRes: Int,
         refreshComments: Boolean = false,
+        successToast: (() -> String)? = null,
         action: suspend (Long) -> Result<*>
     ) {
         if (_state.value.issueActionBusy) return
@@ -761,7 +762,8 @@ class GitViewModel @Inject constructor(
                     it.copy(
                         issueDetail = issue ?: it.issueDetail,
                         issueActionBusy = false,
-                        toast = context.getString(R.string.git_toast_action_success, name)
+                        toast = successToast?.invoke()
+                            ?: context.getString(R.string.git_toast_action_success, name)
                     )
                 }
                 if (refreshComments) loadIssueComments(number)
@@ -797,9 +799,20 @@ class GitViewModel @Inject constructor(
     fun removeIssueLabel(label: String) = runIssueAction(R.string.git_issue_action_label) { n ->
         issuesRepository.removeLabel(n, label)
     }
-    fun setIssueAssignees(assignees: List<String>) = runIssueAction(R.string.git_issue_action_assignee) { n ->
-        issuesRepository.setAssignees(n, assignees)
-    }
+    fun setIssueAssignees(assignees: List<String>) = runIssueAction(
+        nameRes = R.string.git_issue_action_assignee,
+        // 成功提示直接带上受理人，省得用户回列表才看到结果。
+        successToast = {
+            if (assignees.isEmpty()) {
+                context.getString(R.string.git_toast_assignees_cleared)
+            } else {
+                context.getString(
+                    R.string.git_toast_assignees_set,
+                    assignees.joinToString(", ") { "@$it" }
+                )
+            }
+        }
+    ) { n -> issuesRepository.setAssignees(n, assignees) }
     fun toggleIssueLock(locked: Boolean) = runIssueAction(R.string.git_issue_action_lock) { n ->
         issuesRepository.setIssueLock(n, locked)
     }

@@ -1837,6 +1837,8 @@
     <string name="git_toast_no_remote_pull">未配置远程仓库，无法拉取</string>
     <string name="git_toast_no_remote_push">未配置远程仓库，无法推送</string>
     <string name="git_toast_load_more_failed">加载更多失败：%1$s</string>
+    <string name="git_toast_assignees_set">已分配给 %1$s</string>
+    <string name="git_toast_assignees_cleared">已清除受理人</string>
     <string name="git_toast_action_success">%1$s成功</string>
     <string name="git_toast_action_failed">%1$s失败：%2$s</string>
     <string name="git_toast_checkout_success">已切换到 %1$s</string>

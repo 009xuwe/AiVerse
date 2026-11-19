@@ -113,7 +113,12 @@ fun GitScreen(
     val scope = rememberCoroutineScope()
 
     // toast → Snackbar 一次性消费。
-    LaunchedEffect(state.toast) {
+    // 注意：issue 详情 / diff 是提前 return 的全屏页，此时本页 Scaffold 不在组合树里，
+    // showSnackbar 会一直挂起，直到返回列表才弹出（表现为"回到上一页才提示"）。
+    // 所以覆盖页打开期间不在这里消费，交由详情页自己的 Snackbar 就地展示。
+    val overlayOpen = state.diffVisible || state.issueDetailNumber != null
+    LaunchedEffect(state.toast, overlayOpen) {
+        if (overlayOpen) return@LaunchedEffect
         state.toast?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.consumeToast()
@@ -188,7 +193,9 @@ fun GitScreen(
             onSetAssignees = viewModel::setIssueAssignees,
             onToggleLock = viewModel::toggleIssueLock,
             onLoadComments = { state.issueDetailNumber?.let(viewModel::loadIssueComments) },
-            onLoadContributors = viewModel::loadContributors
+            onLoadContributors = viewModel::loadContributors,
+            toastMessage = state.toast,
+            onToastConsumed = viewModel::consumeToast
         )
         return
     }
