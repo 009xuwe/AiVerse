@@ -232,7 +232,7 @@ fun LaunchWizard(
                     )
                 }
                 Button(
-                    onClick = goNext,
+                    onClick = { goNext() },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
