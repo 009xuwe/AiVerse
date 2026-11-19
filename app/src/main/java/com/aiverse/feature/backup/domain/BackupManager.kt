@@ -102,7 +102,15 @@ data class RestoreStats(
     val roles: Int = 0,
     val customPrompts: Int = 0,
     val mediaFiles: Int = 0,
-    val gitCredentials: Int = 0
+    val gitCredentials: Int = 0,
+    /** 恢复的本地设置文件数（DataStore / SharedPreferences / 插件注册表），重启后生效。 */
+    val settingsFiles: Int = 0,
+    /** 解析失败被跳过的条目总数（jsonl 里的坏行）。 */
+    val skippedItems: Int = 0,
+    val skippedChatSessions: Int = 0,
+    val skippedAgentMessages: Int = 0,
+    val skippedTodoItems: Int = 0,
+    val skippedRoles: Int = 0
 ) {
     operator fun plus(other: RestoreStats) = RestoreStats(
         providers = providers + other.providers,
@@ -121,6 +129,12 @@ data class RestoreStats(
         roles = roles + other.roles,
         customPrompts = customPrompts + other.customPrompts,
         mediaFiles = mediaFiles + other.mediaFiles,
-        gitCredentials = gitCredentials + other.gitCredentials
+        gitCredentials = gitCredentials + other.gitCredentials,
+        settingsFiles = settingsFiles + other.settingsFiles,
+        skippedItems = skippedItems + other.skippedItems,
+        skippedChatSessions = skippedChatSessions + other.skippedChatSessions,
+        skippedAgentMessages = skippedAgentMessages + other.skippedAgentMessages,
+        skippedTodoItems = skippedTodoItems + other.skippedTodoItems,
+        skippedRoles = skippedRoles + other.skippedRoles
     )
 }

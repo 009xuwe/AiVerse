@@ -100,6 +100,12 @@
     <string name="agent_input_budget_exceeded">Context exceeds the model input budget. Shorten the input or reduce tool definitions.</string>
 
     <!-- Settings menu titles -->
+    <string name="settings_tab_general">General</string>
+    <string name="settings_tab_ai">AI</string>
+    <string name="settings_tab_environment">Env</string>
+    <string name="settings_tab_permissions">Perms</string>
+    <string name="settings_tab_data">Data</string>
+    <string name="settings_tab_help">Help</string>
     <string name="settings_title">Settings</string>
     <string name="settings_select_section_hint">Pick a setting from the list</string>
     <string name="settings_providers">AI Vendors</string>
@@ -1219,6 +1225,12 @@
     <string name="backup_stat_custom_prompts">· Custom Prompts: %1$s</string>
     <string name="backup_stat_media_files">· Custom Icons &amp; Background: %1$s</string>
     <string name="backup_stat_git_credentials">· Git Credentials: %1$s</string>
+    <string name="backup_skipped_summary">Skipped %1$d damaged entries:</string>
+    <string name="backup_skipped_chat_sessions">%1$d chat sessions</string>
+    <string name="backup_skipped_chat_messages">%1$d messages</string>
+    <string name="backup_skipped_todo_items">%1$d todos</string>
+    <string name="backup_skipped_roles">%1$d roles</string>
+    <string name="backup_settings_files_restored">Restored %1$d local settings files; restart the app to apply</string>
     <string name="backup_settings_covered">Theme, keepalive, logging, vision, and sync preferences covered</string>
     <string name="backup_restore_workspaces_title">Restore workspaces</string>
     <string name="backup_restore_workspaces_warning">Files in local workspaces with the same name will be overwritten and cannot be undone. Select carefully.</string>

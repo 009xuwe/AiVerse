@@ -102,6 +102,12 @@
     <string name="agent_input_budget_exceeded">上下文超过当前模型的可用输入预算，请缩短输入或减少工具定义。</string>
 
     <!-- 设置页菜单标题 -->
+    <string name="settings_tab_general">通用</string>
+    <string name="settings_tab_ai">AI</string>
+    <string name="settings_tab_environment">环境</string>
+    <string name="settings_tab_permissions">权限</string>
+    <string name="settings_tab_data">数据</string>
+    <string name="settings_tab_help">帮助</string>
     <string name="settings_title">设置</string>
     <string name="settings_select_section_hint">从左侧选择一个设置项</string>
     <string name="settings_providers">AI 供应商</string>
@@ -1219,6 +1225,12 @@
     <string name="backup_stat_custom_prompts">· 自定义提示词 %1$s 个</string>
     <string name="backup_stat_media_files">· 自定义图标与背景图 %1$s 个</string>
     <string name="backup_stat_git_credentials">· Git 凭据 %1$s 条</string>
+    <string name="backup_skipped_summary">已跳过 %1$d 条损坏数据：</string>
+    <string name="backup_skipped_chat_sessions">会话 %1$d 条</string>
+    <string name="backup_skipped_chat_messages">消息 %1$d 条</string>
+    <string name="backup_skipped_todo_items">待办 %1$d 条</string>
+    <string name="backup_skipped_roles">角色 %1$d 条</string>
+    <string name="backup_settings_files_restored">已恢复 %1$d 个本地设置文件，重启应用后生效</string>
     <string name="backup_settings_covered">主题、保活、日志、识图、同步偏好已覆盖</string>
     <string name="backup_restore_workspaces_title">恢复工作区</string>
     <string name="backup_restore_workspaces_warning">将直接覆盖本地同名工作区中的文件，且无法撤销，请谨慎勾选</string>

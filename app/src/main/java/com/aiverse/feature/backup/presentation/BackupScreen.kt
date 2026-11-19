@@ -1014,5 +1014,13 @@ private fun buildImportSummary(context: android.content.Context, stats: RestoreS
     if (stats.customPrompts > 0) appendLine(context.getString(R.string.backup_stat_custom_prompts, stats.customPrompts))
     if (stats.mediaFiles > 0) appendLine(context.getString(R.string.backup_stat_media_files, stats.mediaFiles))
     if (stats.gitCredentials > 0) appendLine(context.getString(R.string.backup_stat_git_credentials, stats.gitCredentials))
+    if (stats.settingsFiles > 0) appendLine(context.getString(R.string.backup_settings_files_restored, stats.settingsFiles))
+    if (stats.skippedItems > 0) {
+        appendLine(context.getString(R.string.backup_skipped_summary, stats.skippedItems))
+        if (stats.skippedChatSessions > 0) appendLine(context.getString(R.string.backup_skipped_chat_sessions, stats.skippedChatSessions))
+        if (stats.skippedAgentMessages > 0) appendLine(context.getString(R.string.backup_skipped_chat_messages, stats.skippedAgentMessages))
+        if (stats.skippedTodoItems > 0) appendLine(context.getString(R.string.backup_skipped_todo_items, stats.skippedTodoItems))
+        if (stats.skippedRoles > 0) appendLine(context.getString(R.string.backup_skipped_roles, stats.skippedRoles))
+    }
     append(context.getString(R.string.backup_settings_covered))
 }

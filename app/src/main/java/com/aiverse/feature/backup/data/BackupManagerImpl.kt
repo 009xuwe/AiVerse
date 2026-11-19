@@ -349,6 +349,9 @@ class BackupManagerImpl @Inject constructor(
                     if (options.plugins) {
                         writePluginEntries(tar)
                     }
+                    if (options.appSettings) {
+                        writeSettingsEntries(tar)
+                    }
                     if (options.roles) {
                         writeJsonlFileEntry(tar, FILE_ROLES) { writer ->
                             roleDao.getAllOnce().forEach { writer.writeLine(json.encodeToString(RoleDto.serializer(), it.toDto())) }
@@ -579,6 +582,85 @@ class BackupManagerImpl @Inject constructor(
         }
     }
 
+    /** DataStore 文件目录：`filesDir/datastore`。 */
+    private val datastoreDir: File
+        get() = File(context.filesDir, "datastore")
+
+    /** SharedPreferences 目录：与 filesDir 同级的 `shared_prefs`。 */
+    private val sharedPrefsDir: File
+        get() = File(context.filesDir.parentFile, "shared_prefs")
+
+    /** 插件自带的数据目录：`filesDir/aiverse/plugins/data`。 */
+    private val pluginDataDir: File
+        get() = File(File(context.filesDir, "aiverse"), "plugins/data")
+
+    /**
+     * 设置类数据整体入包，而不是逐项抄字段：
+     * `settings/datastore/<name>`、`settings/shared_prefs/<name>`、`settings/plugin-registry.json`、
+     * `settings/plugin-data/<id>/<相对路径>`。以后新增设置项自动被覆盖，不用再补备份范围。
+     */
+    private fun writeSettingsEntries(tar: TarArchiveOutputStream) {
+        fun writeFlat(dir: File, prefix: String) {
+            if (!dir.isDirectory) return
+            dir.listFiles()?.forEach { file ->
+                if (file.isFile && file.length() > 0) {
+                    writeTarEntry(tar, "$prefix${file.name}", file.readBytes())
+                }
+            }
+        }
+        writeFlat(datastoreDir, SETTINGS_DATASTORE_PREFIX)
+        writeFlat(sharedPrefsDir, SETTINGS_SHARED_PREFS_PREFIX)
+        val registry = File(context.filesDir, PLUGIN_REGISTRY_FILE)
+        if (registry.isFile && registry.length() > 0) {
+            writeTarEntry(tar, SETTINGS_PLUGIN_REGISTRY, registry.readBytes())
+        }
+        val pluginData = pluginDataDir
+        if (pluginData.isDirectory) {
+            walkDirectory(pluginData) { file, relParts ->
+                writeTarEntry(
+                    tar,
+                    "$SETTINGS_PLUGIN_DATA_PREFIX${relParts.joinToString("/")}",
+                    file.readBytes()
+                )
+            }
+        }
+    }
+
+    /** 单个设置文���落回本机；导入完成需提示用户重启，DataStore 实例才会重新读盘。 */
+    private fun restoreSettingsEntry(tar: TarArchiveInputStream, name: String): Boolean {
+        val base: File
+        val rel: String
+        when {
+            name.startsWith(SETTINGS_DATASTORE_PREFIX) -> {
+                base = datastoreDir
+                rel = name.removePrefix(SETTINGS_DATASTORE_PREFIX)
+            }
+            name.startsWith(SETTINGS_SHARED_PREFS_PREFIX) -> {
+                base = sharedPrefsDir
+                rel = name.removePrefix(SETTINGS_SHARED_PREFS_PREFIX)
+            }
+            name.startsWith(SETTINGS_PLUGIN_DATA_PREFIX) -> {
+                base = pluginDataDir
+                rel = name.removePrefix(SETTINGS_PLUGIN_DATA_PREFIX)
+            }
+            name == SETTINGS_PLUGIN_REGISTRY -> {
+                base = context.filesDir
+                rel = PLUGIN_REGISTRY_FILE
+            }
+            else -> return false
+        }
+        // 备份是外部文件，落盘前确认目标没有跳出既定目录。
+        val root = base.canonicalFile
+        val target = File(root, rel).canonicalFile
+        if (!target.path.startsWith(root.path + File.separator)) {
+            FileLogger.w(TAG, "跳过越界的设置条目：$name")
+            return false
+        }
+        target.parentFile?.mkdirs()
+        target.writeBytes(tar.readBytes())
+        return true
+    }
+
     // ── 自定义提示词备份（prompts.custom 整目录） ─────────────────
 
     private val promptsCustomDir: File
@@ -704,7 +786,7 @@ class BackupManagerImpl @Inject constructor(
                     checkVersion(metadata.schemaVersion)
                 }
                 FILE_SESSIONS -> {
-                    val count = restoreJsonl(tar, ChatSessionDto.serializer()) { dtos ->
+                    val restored = restoreJsonl(tar, ChatSessionDto.serializer()) { dtos ->
                         chatSessionDao.upsertAll(
                             dtos.map { dto ->
                                 dto.copy(
@@ -713,30 +795,52 @@ class BackupManagerImpl @Inject constructor(
                             }
                         )
                     }
-                    FileLogger.i(TAG, "恢复会话 $count 条")
-                    stats += RestoreStats(chatSessions = count)
+                    // 会话是关键数据：全都没解析出来说明备份本身坏了，直接失败而不是"成功 0 条"。
+                    if (restored.inserted == 0 && restored.skipped > 0) {
+                        throw IllegalStateException(
+                            "备份里的会话数据全部无法解析（损坏 ${restored.skipped} 条），请重新导出备份后再试"
+                        )
+                    }
+                    FileLogger.i(TAG, "恢复会话 ${restored.inserted} 条，跳过 ${restored.skipped} 条")
+                    stats += RestoreStats(
+                        chatSessions = restored.inserted,
+                        skippedItems = restored.skipped,
+                        skippedChatSessions = restored.skipped
+                    )
                 }
                 FILE_MESSAGES -> {
-                    val count = restoreJsonl(tar, AgentMessageDto.serializer()) { dtos ->
+                    val restored = restoreJsonl(tar, AgentMessageDto.serializer()) { dtos ->
                         agentMessageDao.insertAll(dtos.map { it.toEntity() })
                     }
-                    FileLogger.i(TAG, "恢复消息 $count 条")
-                    stats += RestoreStats(agentMessages = count)
+                    FileLogger.i(TAG, "恢复消息 ${restored.inserted} 条，跳过 ${restored.skipped} 条")
+                    stats += RestoreStats(
+                        agentMessages = restored.inserted,
+                        skippedItems = restored.skipped,
+                        skippedAgentMessages = restored.skipped
+                    )
                 }
                 FILE_TODOS -> {
-                    val count = restoreJsonl(tar, TodoItemDto.serializer()) { dtos ->
+                    val restored = restoreJsonl(tar, TodoItemDto.serializer()) { dtos ->
                         todoItemDao.upsertAll(dtos.map { it.toEntity() })
                     }
-                    FileLogger.i(TAG, "恢复待办 $count 条")
-                    stats += RestoreStats(todoItems = count)
+                    FileLogger.i(TAG, "恢复待办 ${restored.inserted} 条，跳过 ${restored.skipped} 条")
+                    stats += RestoreStats(
+                        todoItems = restored.inserted,
+                        skippedItems = restored.skipped,
+                        skippedTodoItems = restored.skipped
+                    )
                 }
                 FILE_ROLES -> {
-                    val count = restoreJsonl(tar, RoleDto.serializer()) { dtos ->
+                    val restored = restoreJsonl(tar, RoleDto.serializer()) { dtos ->
                         roleDao.upsertAll(dtos.map { it.toEntity() })
                     }
                     ensureDefaultRole()
-                    FileLogger.i(TAG, "恢复角色 $count 条")
-                    stats += RestoreStats(roles = count)
+                    FileLogger.i(TAG, "恢复角色 ${restored.inserted} 条，跳过 ${restored.skipped} 条")
+                    stats += RestoreStats(
+                        roles = restored.inserted,
+                        skippedItems = restored.skipped,
+                        skippedRoles = restored.skipped
+                    )
                 }
                 FILE_GIT_CREDENTIALS -> {
                     val count = restoreGitCredentialsEntry(tar)
@@ -754,6 +858,10 @@ class BackupManagerImpl @Inject constructor(
                         if (restoreCustomPromptEntry(tar, entry.name)) stats += RestoreStats(customPrompts = 1)
                     } else if (entry.name.startsWith(MEDIA_PREFIX)) {
                         if (restoreMediaEntry(tar, entry.name)) stats += RestoreStats(mediaFiles = 1)
+                    } else if (entry.name.startsWith(SETTINGS_PREFIX)) {
+                        if (restoreSettingsEntry(tar, entry.name)) {
+                            stats += RestoreStats(settingsFiles = 1)
+                        }
                     }
                 }
             }
@@ -796,11 +904,15 @@ class BackupManagerImpl @Inject constructor(
     }
 
     /** 逐行解析 jsonl 条目，每 [PAGE_SIZE] 条回调一次批量插入；返回该文件的总条数。 */
-    private suspend fun <T> restoreJsonl(tar: TarArchiveInputStream, serializer: KSerializer<T>, insert: suspend (List<T>) -> Unit): Int {
+    /** 逐行恢复的结果：成功写入多少条、因格式异常跳过多少条。 */
+    private data class JsonlRestore(val inserted: Int, val skipped: Int)
+
+    private suspend fun <T> restoreJsonl(tar: TarArchiveInputStream, serializer: KSerializer<T>, insert: suspend (List<T>) -> Unit): JsonlRestore {
         val buffer = ByteArray(64 * 1024)
         val line = ByteArrayOutputStream(16 * 1024)
         val batch = ArrayList<T>(PAGE_SIZE)
         var count = 0
+        var skipped = 0
         while (true) {
             val n = tar.read(buffer)
             if (n < 0) break
@@ -812,7 +924,9 @@ class BackupManagerImpl @Inject constructor(
                     if (line.size() > 0) {
                         // 注意：ByteArrayOutputStream.toString(Charset) 是 API 33 才有的方法，
                         // 在 Android 13 以下会抛 NoSuchMethodError，必须用 String(byte[], Charset) 构造器。
-                        batch.add(json.decodeFromString(serializer, String(line.toByteArray(), Charsets.UTF_8)))
+                        // 单行解析失败不能拖垮整个导入：跳过并计数，最后在结果里如实报告。
+                        val decoded = decodeLine(serializer, line.toByteArray())
+                        if (decoded == null) skipped++ else batch.add(decoded)
                         line.reset()
                         if (batch.size >= PAGE_SIZE) {
                             count += batch.size
@@ -827,14 +941,24 @@ class BackupManagerImpl @Inject constructor(
             line.write(buffer, start, n - start)
         }
         if (line.size() > 0) {
-            batch.add(json.decodeFromString(serializer, String(line.toByteArray(), Charsets.UTF_8)))
+            val decoded = decodeLine(serializer, line.toByteArray())
+            if (decoded == null) skipped++ else batch.add(decoded)
         }
         if (batch.isNotEmpty()) {
             count += batch.size
             insert(batch.toList())
         }
-        return count
+        return JsonlRestore(inserted = count, skipped = skipped)
     }
+
+    /** 单行 jsonl 解析；格式不对时返回 null（由调用方计入跳过数），不抛异常。 */
+    private fun <T> decodeLine(serializer: KSerializer<T>, bytes: ByteArray): T? =
+        runCatching {
+            json.decodeFromString(serializer, String(bytes, Charsets.UTF_8))
+        }.getOrElse {
+            FileLogger.w(TAG, "备份条目解析失败，已跳过", it)
+            null
+        }
 
     private fun checkVersion(schemaVersion: Int) {
         if (schemaVersion > currentSchemaVersion()) {
@@ -1392,6 +1516,14 @@ class BackupManagerImpl @Inject constructor(
         const val CUSTOM_PROMPT_PREFIX = "customPrompts/"
         const val MEDIA_PREFIX = "media/"
         const val FILE_GIT_CREDENTIALS = "credentials/git-credentials"
+        /** 本地设置文件：DataStore / SharedPreferences / 插件注册表 / 插件数据，整体入包。 */
+        const val SETTINGS_PREFIX = "settings/"
+        const val SETTINGS_DATASTORE_PREFIX = "settings/datastore/"
+        const val SETTINGS_SHARED_PREFS_PREFIX = "settings/shared_prefs/"
+        const val SETTINGS_PLUGIN_REGISTRY = "settings/plugin-registry.json"
+        const val SETTINGS_PLUGIN_DATA_PREFIX = "settings/plugin-data/"
+        /** 插件注册表文件名（与 PluginManager 中的 REGISTRY_FILE 保持一致）。 */
+        const val PLUGIN_REGISTRY_FILE = "plugin-registry.json"
         const val WELCOME_ICON_DIR = "welcome_icons"
         const val BACKGROUND_DIR = "backgrounds"
     }
