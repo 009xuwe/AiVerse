@@ -1140,11 +1140,18 @@ class AIAgentViewModel @Inject constructor(
         }
 
     /** 删除条目；目录连同内容递归删除。 */
-    fun deleteBrowseEntry(path: String, onResult: (Boolean) -> Unit) =
+    fun deleteBrowseEntry(path: String, onResult: (Boolean) -> Unit) {
+        // 本机文件夹挂载根只能「移除挂载」（removeLocalFolder），禁止物理递归删除，避免误删手机真实目录。
+        // 精确等值比较只命中挂载根本身，不会误伤其子文件/子目录。
+        if (_localFolders.value.any { WorkspacePathMapper.toLocalFolderContainerPath(it.hostPath) == path }) {
+            onResult(false)
+            return
+        }
         mutateBrowse(busyPaths = setOf(path), onResult = onResult) {
             fileAccess.deleteRecursively(path)
             true
         }
+    }
 
     // region 文件复制 / 剪切 / 粘贴
 

@@ -1162,6 +1162,8 @@ private fun FileBrowserTab(
         }
     }
     fun toggleSelect(node: FileTreeNode) {
+        // 本机文件夹挂载根不参与多选勾选：避免其被批量删除/分享/复制带上
+        if (node.root is FileTreeRoot.LocalFolder) return
         val kids = descendantsOf(node.path)
         if (node.entry.isDirectory) {
             val children = directChildrenOf(node.path, node.depth)
@@ -1495,16 +1497,7 @@ private fun FileBrowserTab(
                                         else -> onOpenFile(node.path)
                                     }
                                 },
-                                onLongClick = {
-                                    if (!inSelectionMode) {
-                                        editMode = true
-                                        selectedPaths = emptySet()
-                                        unselectedFromFolders = emptySet()
-                                        toggleSelect(node)
-                                    } else {
-                                        toggleSelect(node)
-                                    }
-                                },
+                                onLongClick = { menuNode = node },
                                 onToggleSelect = { toggleSelect(node) },
                                 modifier = Modifier.animateItem(
                                     fadeInSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
@@ -2098,7 +2091,12 @@ private fun FileTreeRow(
             .padding(start = Spacing.sm, end = Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (inSelectionMode) {
+        if (inSelectionMode && node.root is FileTreeRoot.LocalFolder) {
+            // 挂载根不参与多选：不显示复选框，用等宽占位保持右侧内容对齐
+            Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(Spacing.xs))
+        }
+        if (inSelectionMode && node.root !is FileTreeRoot.LocalFolder) {
             val checked = selectionState == 1
             val partial = selectionState == 2
             Box(
