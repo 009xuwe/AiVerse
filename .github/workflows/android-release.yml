@@ -143,7 +143,10 @@ jobs:
             | AiVerse-arm64-v${{ steps.version.outputs.full }}.apk | arm64-v8a | 新手机（推荐） |
             | AiVerse-x86_64-v${{ steps.version.outputs.full }}.apk | x86_64 | 模拟器 / x86 设备 |
             | AiVerse-universal-v${{ steps.version.outputs.full }}.apk | arm64-v8a + x86_64 | 通用包：同时含两套镜像，兼容所有设备，体积约为单架构包两倍 |
-          generate_release_notes: true
+          # 正式版不使用 GitHub 自动生成的 "What's Changed"：
+          # 那段是按 PR 作者归属拼出来的（PR 由贡献账号提就会署那个账号），
+          # 正式版公告只用上面手写的正文。测试版（nightly-build.yml）保留自动列表。
+          generate_release_notes: false
           prerelease: ${{ steps.version.outputs.prerelease }}
           name: "v${{ steps.version.outputs.full }}"
           tag_name: "v${{ steps.version.outputs.full }}"
