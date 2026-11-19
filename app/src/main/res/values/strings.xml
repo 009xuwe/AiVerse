@@ -1418,6 +1418,7 @@
     <string name="chat_input_expand">展开输入框</string>
     <string name="chat_mention_loading">正在加载文件列表…</string>
     <string name="chat_mention_unavailable">容器未就绪，无法搜索文件</string>
+    <string name="chat_mention_unavailable_hint">备份与还原不含容器数据，请先进入终端页面完成初始化</string>
     <string name="chat_mention_error">加载文件列表失败</string>
     <string name="chat_mention_empty">没有匹配的文件</string>
     <string name="chat_input_fullscreen_title">全屏输入</string>

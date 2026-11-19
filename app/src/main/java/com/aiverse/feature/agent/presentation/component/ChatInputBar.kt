@@ -443,22 +443,36 @@ internal fun ChatInputBar(
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
                     ) {
-                        val mentionHint = when (fileMentionState) {
+                        // 提示拆成「一句话结论 + 原因/下一步」两行：容器未就绪时用户不知道要先去终端初始化，
+                        // 只写「无法搜索文件」会被误以为是文件列表坏了。
+                        val mentionHint: Pair<String, String?>? = when (fileMentionState) {
                             FileMentionState.Idle, FileMentionState.Loading ->
-                                stringResource(R.string.chat_mention_loading)
+                                stringResource(R.string.chat_mention_loading) to null
                             FileMentionState.Unavailable ->
-                                stringResource(R.string.chat_mention_unavailable)
+                                stringResource(R.string.chat_mention_unavailable) to
+                                    stringResource(R.string.chat_mention_unavailable_hint)
                             is FileMentionState.Error ->
-                                stringResource(R.string.chat_mention_error)
+                                stringResource(R.string.chat_mention_error) to null
                             is FileMentionState.Ready -> null
                         }
                         when {
-                            mentionHint != null -> Text(
-                                mentionHint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            mentionHint != null -> Column(
                                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
-                            )
+                            ) {
+                                Text(
+                                    mentionHint.first,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                mentionHint.second?.let { hint ->
+                                    Text(
+                                        text = hint,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                        modifier = Modifier.padding(top = Spacing.xs)
+                                    )
+                                }
+                            }
                             mentionFiles.isEmpty() -> Text(
                                 stringResource(R.string.chat_mention_empty),
                                 style = MaterialTheme.typography.bodySmall,
