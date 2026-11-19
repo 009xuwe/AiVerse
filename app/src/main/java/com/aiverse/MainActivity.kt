@@ -61,8 +61,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.AlertCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -1580,10 +1580,10 @@ private fun SignatureMismatchScreen(
             modifier = Modifier.padding(32.dp)
         ) {
             Icon(
-                Icons.Default.Warning,
+                imageVector = FeatherIcons.AlertCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(96.dp)
             )
             Spacer(Modifier.height(16.dp))
             Text(

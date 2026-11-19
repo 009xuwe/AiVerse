@@ -101,6 +101,9 @@ import compose.icons.feathericons.Check
 import compose.icons.feathericons.Zap
 import compose.icons.feathericons.Folder
 import compose.icons.feathericons.Github
+import compose.icons.feathericons.Maximize
+import compose.icons.feathericons.Package
+import compose.icons.feathericons.Power
 
 /** 启动向导的页面种类。正式版 4 页，测试版多一页「从正式版导入」。 */
 enum class LaunchWizardPage { AGREEMENT, PERMISSIONS, APPEARANCE, BETA_HANDOFF, STAR }

@@ -16,6 +16,8 @@ import com.aiverse.feature.agent.data.local.dao.AgentMessageDao
 import com.aiverse.feature.agent.data.local.dao.ChatSessionDao
 import com.aiverse.feature.agent.domain.checkpoint.CheckpointManager
 import com.aiverse.feature.agent.domain.container.LinuxContainerEngine
+import com.aiverse.feature.agent.data.local.dao.RoleDao
+import com.aiverse.feature.agent.domain.model.Role
 import com.aiverse.feature.agent.domain.model.AgentContext
 import com.aiverse.feature.agent.domain.model.AgentImage
 import com.aiverse.feature.agent.domain.model.AgentMode
@@ -139,6 +141,7 @@ class AgentRunManager @Inject constructor(
     private val subAgentEventBus: SubAgentEventBus,
     private val agentNotificationCenter: AgentNotificationCenter,
     private val agentDefinitionRepository: AgentDefinitionRepository,
+    private val roleDao: RoleDao,
     @ApplicationContext private val context: Context
 ) {
 
@@ -1245,6 +1248,12 @@ class AgentRunManager @Inject constructor(
                     ?.let { agentDefinitionRepository.findIncludingDisabled(it) }
             }
 
+            // 查询会话绑定角色的身份正文（issue #168）：roleId 为 null 时使用默认角色
+            val roleIdentity = withContext(Dispatchers.IO) {
+                val roleId = sessionDomain?.roleId ?: Role.DEFAULT_ROLE_ID
+                roleDao.getById(roleId)?.identityPrompt?.trim()?.takeIf { it.isNotEmpty() }
+            }
+
             val agentContext = AgentContext(
                 currentFile = currentFile,
                 selectedCode = selectedCode,
@@ -1260,7 +1269,8 @@ class AgentRunManager @Inject constructor(
                 goal = sessionDomain?.goal,
                 goalStatus = sessionDomain?.goalStatus,
                 reasoningEffort = sessionDomain?.reasoningEffort?.apiValue,
-                agentDefinition = agentDefinition
+                agentDefinition = agentDefinition,
+                roleIdentity = roleIdentity
             )
 
             val allTools = toolRegistry.getAvailableTools()

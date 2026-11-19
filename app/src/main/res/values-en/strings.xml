@@ -1245,6 +1245,7 @@
     <string name="auth_grant_risk_file_provider">The backup file stays inside the release build\'s private directory. The beta build only gets a one-time read grant that is revoked right after it is read; no other app can ever touch this file.</string>
     <string name="auth_grant_risk_http">The backup file is transferred over 127.0.0.1 on the local loopback interface, never over a network. The service lives only for this transfer and shuts itself down once it is done.</string>
     <string name="auth_grant_channel_header">Choose a transfer channel</string>
+    <string name="auth_grant_channel_selected">Selected: %s</string>
     <string name="auth_grant_data_header">Data to be shared</string>
     <string name="auth_grant_data_git_credentials">Git credentials</string>
     <string name="auth_grant_fallback_header">Prefer the traditional way?</string>

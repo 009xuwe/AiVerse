@@ -136,7 +136,8 @@ class WebSearchTool @Inject constructor(
                             "name" to JsonPrimitive("web_search"),
                             "arguments" to JsonObject(
                                 mapOf(
-                                    "search_query" to JsonPrimitive(query),
+                                    "objective" to JsonPrimitive(query),
+                                    "search_queries" to JsonArray(listOf(JsonPrimitive(query))),
                                     "session_id" to JsonPrimitive("AiVerse-android")
                                 )
                             )

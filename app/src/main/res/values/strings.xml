@@ -1245,6 +1245,7 @@
     <string name="auth_grant_risk_file_provider">备份文件全程留在正式版的私有目录里，只给测试版一次性的读取授权，读完立即收回；其他应用始终碰不到这个文件。</string>
     <string name="auth_grant_risk_http">备份文件经 127.0.0.1 本机回环地址传输，不经过网络；服务仅存活到本次传输结束，用完自动关闭。</string>
     <string name="auth_grant_channel_header">选择传输通道</string>
+    <string name="auth_grant_channel_selected">已选择：%s</string>
     <string name="auth_grant_data_header">将共享的数据</string>
     <string name="auth_grant_data_git_credentials">Git 凭据</string>
     <string name="auth_grant_fallback_header">更习惯传统方式？</string>

@@ -1,5 +1,7 @@
 package com.aiverse.feature.backup.presentation
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -79,6 +82,7 @@ fun AuthGrantScreen(
     onOpenExistingBackup: () -> Unit
 ) {
     val t = LocalUIDensityTokens.current
+    val context = LocalContext.current
     var selectedChannel by remember { mutableStateOf(HandoffChannel.FileProviderUri) }
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
@@ -136,7 +140,10 @@ fun AuthGrantScreen(
                             title = stringResource(R.string.auth_grant_channel_file_provider),
                             recommended = true,
                             selected = selectedChannel == HandoffChannel.FileProviderUri,
-                            onSelect = { selectedChannel = HandoffChannel.FileProviderUri }
+                            onSelect = {
+                                selectedChannel = HandoffChannel.FileProviderUri
+                                Toast.makeText(context, context.getString(R.string.auth_grant_channel_selected, context.getString(R.string.auth_grant_channel_file_provider)), Toast.LENGTH_SHORT).show()
+                            }
                         )
                         SettingsDivider()
                         AuthGrantChannelRow(
@@ -144,7 +151,10 @@ fun AuthGrantScreen(
                             title = stringResource(R.string.auth_grant_channel_http),
                             recommended = false,
                             selected = selectedChannel == HandoffChannel.HttpServer,
-                            onSelect = { selectedChannel = HandoffChannel.HttpServer }
+                            onSelect = {
+                                selectedChannel = HandoffChannel.HttpServer
+                                Toast.makeText(context, context.getString(R.string.auth_grant_channel_selected, context.getString(R.string.auth_grant_channel_http)), Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
 
@@ -272,7 +282,7 @@ private fun AuthGrantChannelRow(
         icon = icon,
         title = title,
         enabled = true,
-        modifier = Modifier.clickable(onClick = onSelect),
+        onClick = onSelect,
         trailing = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(t.xs),
