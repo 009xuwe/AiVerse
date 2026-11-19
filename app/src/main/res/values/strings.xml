@@ -3134,7 +3134,7 @@ AI 将自主循环推进（工具自动放行、PLAN 停用），直到达成、
     <!-- 启动向导（欢迎页 / Welcome wizard） -->
     <string name="launch_wizard_step_counter">%1$d / %2$d</string>
     <string name="launch_wizard_exit">退出</string>
-    <string name="launch_wizard_skip">跳过</string>
+    <string name="launch_wizard_prev">上一页</string>
     <string name="launch_wizard_next">下一步</string>
     <string name="launch_wizard_agree">同意并继续</string>
     <string name="launch_wizard_start">开始使用</string>
@@ -3142,7 +3142,7 @@ AI 将自主循环推进（工具自动放行、PLAN 停用），直到达成、
     <string name="launch_page_agreement_subtitle">先把条款确认好，再一次性设置完外观和权限，就可以直接开始。</string>
     <string name="launch_agreement_footnote">同意后可在「设置 → 关于」中随时查看协议与隐私政策。</string>
     <string name="launch_page_permission_title">授予系统权限</string>
-    <string name="launch_page_permission_subtitle">以下权限全部可选，跳过也能正常启动；开启后后台运行与通知提醒更完整。</string>
+    <string name="launch_page_permission_subtitle">以下权限全部可选，不授权也能正常启动；开启后后台运行与通知提醒更完整。</string>
     <string name="launch_permission_notification_title">通知权限</string>
     <string name="launch_permission_notification_desc">任务完成、下载结束与后台保活提醒</string>
     <string name="launch_permission_go">去开启</string>

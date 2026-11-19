@@ -210,7 +210,8 @@ fun LaunchWizard(
                 }
             }
 
-            // 底部：左下退出/跳过，右下确认/下一步/开始使用
+            // 底部：左下「退出 / 上一页」，右下「同意并继续 / 下一步 / 开始使用」。
+            // 中间页不给「跳过」：整段向导必须逐页走完，只能回退，不能越页。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -219,12 +220,12 @@ fun LaunchWizard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(
-                    onClick = { if (isFirst) onExit() else goNext() },
+                    onClick = { if (isFirst) onExit() else index -= 1 },
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Text(
                         text = stringResource(
-                            if (isFirst) R.string.launch_wizard_exit else R.string.launch_wizard_skip
+                            if (isFirst) R.string.launch_wizard_exit else R.string.launch_wizard_prev
                         ),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

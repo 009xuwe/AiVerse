@@ -3135,7 +3135,7 @@ Use `/goal pause`, `/goal resume`, or `/goal clear` anytime.</string>
     <!-- Launch wizard (welcome flow) -->
     <string name="launch_wizard_step_counter">%1$d / %2$d</string>
     <string name="launch_wizard_exit">Exit</string>
-    <string name="launch_wizard_skip">Skip</string>
+    <string name="launch_wizard_prev">Previous</string>
     <string name="launch_wizard_next">Next</string>
     <string name="launch_wizard_agree">Agree and continue</string>
     <string name="launch_wizard_start">Get started</string>
@@ -3143,7 +3143,7 @@ Use `/goal pause`, `/goal resume`, or `/goal clear` anytime.</string>
     <string name="launch_page_agreement_subtitle">Confirm the terms, set appearance and permissions once, then you are ready to go.</string>
     <string name="launch_agreement_footnote">You can revisit the terms and privacy policy in Settings → About.</string>
     <string name="launch_page_permission_title">Grant system permissions</string>
-    <string name="launch_page_permission_subtitle">All optional — you can skip and still use the app. Granting them makes background runs and notifications more reliable.</string>
+    <string name="launch_page_permission_subtitle">All optional — the app works without them. Granting them makes background runs and notifications more reliable.</string>
     <string name="launch_permission_notification_title">Notifications</string>
     <string name="launch_permission_notification_desc">Task completion, downloads and keep-alive alerts</string>
     <string name="launch_permission_go">Enable</string>
