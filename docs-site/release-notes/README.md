@@ -2,7 +2,8 @@
 
 正式版发版时，`android-release.yml` 会按版本号找本目录下的 `<版本号>.md`：
 
-- `release-notes/2.4.1.md` → 发 `2.4.1` 时自动追加到「APK 说明」表格之后
+- `docs-site/release-notes/2.4.1.md` → 发 `2.4.1` 时自动追加到「APK 说明」表格之后
+- 目录与官网文档放在一起，发版时由 workflow 在**构建完成后**读取，内容只进 Release 正文，不影响站点构建
 - 版本号跟 workflow 里输入的版本号一致（含 `-rc1` 这类后缀时要写全，如 `2.4.1-rc1.md`）
 - 文件不存在且没填 `notes` 输入 → 正文只有 APK 说明表
 - 文件存在且也填了 `notes` → 以文件为准
