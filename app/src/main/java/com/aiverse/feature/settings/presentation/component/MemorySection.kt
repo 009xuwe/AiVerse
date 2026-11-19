@@ -252,7 +252,7 @@ private fun MemoryEmptyRow(text: String) {
 }
 
 /**
- * 记忆行：普通模式点击进编辑；多选模式（[selection] 非空）左侧出现勾选框，点击行切换选中。
+ * 记忆行：普通模式点击进编辑；多选模式（[selection.isActive] 为 true）左侧出现勾选框，点击行切换选中。
  */
 @Composable
 private fun MemoryRow(
@@ -262,7 +262,7 @@ private fun MemoryRow(
     selection: ListSelectionState? = null,
     selectionKey: String? = null
 ) {
-    if (selection == null || selectionKey == null) {
+    if (selection == null || selectionKey == null || !selection.isActive) {
         SettingsRow(
             icon = FeatherIcons.FileText,
             title = memory.name,
