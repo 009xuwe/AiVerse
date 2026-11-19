@@ -33,6 +33,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 第一步就把「更新公告」输入解析成 MD 文档：输入框是单行的，多行内容填不进来，
+      # 统一在这里转成文件，后续流程只按「文件是否有」来判断，逻辑单一。
+      - name: 解析更新公告（输入 → MD 文档）
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          mkdir -p .release-notes
+          INPUT_NOTES=".release-notes/from-input.md"
+          rm -f "$INPUT_NOTES"
+          if [ -n "$NOTES" ]; then
+            printf '%b\n' "$NOTES" > "$INPUT_NOTES" || true
+            echo "已把输入的更新公告写成 $INPUT_NOTES："
+            cat "$INPUT_NOTES" || true
+          else
+            echo "未填写更新公告输入，跳过生成"
+          fi
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -142,21 +159,21 @@ jobs:
       - name: 生成发布正文
         env:
           FULL: ${{ steps.version.outputs.full }}
-          NOTES: ${{ github.event.inputs.notes }}
         run: |
           mkdir -p dist
           # 顺序固定为：APK 说明标题 → 更新公告 → 包体表格。
           # 公告文件不存在 / 读不出来都只是"没有公告"，绝不能让发版失败。
+          # 只做检测与读取：本次填了公告就用第一步生成的 MD（显式输入优先），
+          # 否则用按版本号预写的文件；都没有就跳过（不写占位文字，也不让发版失败）。
           NOTES_FILE="docs-site/release-notes/$FULL.md"
+          INPUT_NOTES=".release-notes/from-input.md"
           {
             echo "## APK 说明"
             echo
-            if [ -f "$NOTES_FILE" ] && [ -r "$NOTES_FILE" ]; then
+            if [ -f "$INPUT_NOTES" ] && [ -r "$INPUT_NOTES" ]; then
+              cat "$INPUT_NOTES" 2>/dev/null || true
+            elif [ -f "$NOTES_FILE" ] && [ -r "$NOTES_FILE" ]; then
               cat "$NOTES_FILE" 2>/dev/null || true
-            elif [ -n "$NOTES" ]; then
-              echo "## 更新内容"
-              echo
-              printf '%b\n' "$NOTES" 2>/dev/null || true
             fi
             echo
             echo "| 包名 | ABI | 适用设备 |"
