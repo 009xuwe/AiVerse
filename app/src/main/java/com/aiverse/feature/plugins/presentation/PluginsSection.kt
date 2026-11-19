@@ -202,6 +202,9 @@ internal fun PluginsSection(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val storeViewModel: PluginStoreViewModel = hiltViewModel()
     val storeState by storeViewModel.state.collectAsStateWithLifecycle()
+    // 首次进入插件页时补一次静默加载：否则索引还没回来时 updatesByPluginId 是空的，
+    // 已安装列表里不会出现「全部更新」，只能靠用户手动下拉刷新置商店。
+    LaunchedEffect(Unit) { storeViewModel.loadIfEmpty() }
     val pageCount = if (devMode) 3 else 2
     val installedListState = rememberLazyListState()
     val devListState = rememberLazyListState()

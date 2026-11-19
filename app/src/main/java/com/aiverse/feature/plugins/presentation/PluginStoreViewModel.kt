@@ -164,6 +164,15 @@ class PluginStoreViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 索引还没拉到时的静默补拉：已安装页在首帧就用到 [PluginStoreUiState.updatesByPluginId]，
+     * 为空会导致「全部更新」按钮不出现（要用户下拉刷新一次才冒出来）。
+     * 它不是用户触发的刷新，所以不强制走网络，命中缓存就够。
+     */
+    fun loadIfEmpty() {
+        if (_state.value.items.isEmpty() && !_state.value.loading) loadAll(force = false)
+    }
+
     fun refresh() {
         loadAll(force = true)
     }

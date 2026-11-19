@@ -459,6 +459,9 @@ fun SettingsScreen(
         mutableStateOf(
             when (initialSection) {
                 "providers" -> SettingsSection.Providers
+                // 首页「插件有更新 → 去安装」直接落到插件分区；之前漏了这一档，
+                // 所以点进去只会停在设置主菜单。
+                "plugins" -> SettingsSection.Plugins
                 "mcp" -> SettingsSection.Mcp
                 "phoneControl" -> SettingsSection.PhoneControl
                 "search_provider" -> SettingsSection.SearchProvider
