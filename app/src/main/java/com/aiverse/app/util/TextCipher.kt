@@ -21,8 +21,8 @@ internal object TextCipher {
         return Base64.encodeToString(out, Base64.NO_WRAP)
     }
 
-    private const val D_OFFICIAL_URL = "MTvXYQ3iE7Rnmx584CqZLzdg"
-    private const val D_REPO_URL     = "MTvXYQ3iE7Rhmxx15TiZLzYijGgWvFH8YN0JdOY/xT88"
+    private const val D_OFFICIAL_URL = "MTvXYQ3iE7Rnmx584CqZLzc="
+    private const val D_REPO_URL     = "MTvXYQ3iE7Rhmxx15TiZLzYijGgWvFH8YN0pdMY/xT88"
     private const val D_LABEL_OFFICIAL = "vOE79sNJ"
     private const val D_LABEL_REPO     = "vfQw9MRL"
 
