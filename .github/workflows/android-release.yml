@@ -145,25 +145,25 @@ jobs:
           NOTES: ${{ github.event.inputs.notes }}
         run: |
           mkdir -p dist
+          # 顺序固定为：APK 说明标题 → 更新公告 → 包体表格。
+          # 公告文件不存在 / 读不出来都只是"没有公告"，绝不能让发版失败。
+          NOTES_FILE="docs-site/release-notes/$FULL.md"
           {
             echo "## APK 说明"
+            echo
+            if [ -f "$NOTES_FILE" ] && [ -r "$NOTES_FILE" ]; then
+              cat "$NOTES_FILE" 2>/dev/null || true
+            elif [ -n "$NOTES" ]; then
+              echo "## 更新内容"
+              echo
+              printf '%b\n' "$NOTES" 2>/dev/null || true
+            fi
             echo
             echo "| 包名 | ABI | 适用设备 |"
             echo "|---|---|---|"
             echo "| AiVerse-arm64-v$FULL.apk | arm64-v8a | 新手机（推荐） |"
             echo "| AiVerse-x86_64-v$FULL.apk | x86_64 | 模拟器 / x86 设备 |"
             echo "| AiVerse-universal-v$FULL.apk | arm64-v8a + x86_64 | 通用包：同时含两套镜像，兼容所有设备，体积约为单架构包两倍 |"
-            # 公告文件不存在 / 读不出来都只是"没有公告"，绝不能让发版失败。
-            NOTES_FILE="docs-site/release-notes/$FULL.md"
-            if [ -f "$NOTES_FILE" ] && [ -r "$NOTES_FILE" ]; then
-              echo
-              cat "$NOTES_FILE" 2>/dev/null || true
-            elif [ -n "$NOTES" ]; then
-              echo
-              echo "## 更新内容"
-              echo
-              printf '%b\n' "$NOTES" 2>/dev/null || true
-            fi
           } > dist/release-body.md
           echo "发布正文（前 12 行）："
           head -12 dist/release-body.md || true
