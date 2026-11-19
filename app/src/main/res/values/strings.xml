@@ -1362,6 +1362,7 @@
     <string name="file_browser_move">移动到此处</string>
     <string name="file_browser_select_mode">多选</string>
     <string name="file_browser_select_all">全选</string>
+    <string name="file_browser_send_to_chat">发送至聊天</string>
     <string name="file_browser_cancel_selection">取消选择</string>
     <string name="file_browser_selected_count">已选 %1$d 项</string>
     <string name="file_browser_share_failed">分享失败</string>

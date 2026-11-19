@@ -145,6 +145,7 @@ import com.aiverse.feature.settings.presentation.component.settingsPageBackgroun
 import com.aiverse.feature.terminal.domain.TerminalKeepaliveService
 import com.aiverse.feature.terminal.presentation.TerminalViewModel
 import com.aiverse.feature.terminal.presentation.component.TerminalScreen
+import com.aiverse.feature.workspace.domain.WorkspacePathMapper
 import com.aiverse.feature.workspace.presentation.WorkspaceViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -849,6 +850,20 @@ fun AppNavigation(
                 }
             },
             onShareEntries = { agentViewModel.shareEntries(it) },
+            onSendSelectionToChat = { paths ->
+                // 把选中容器路径转成 @引用 文本（工作区相对路径，单空格分隔、末尾一个空格），
+                // 追加进当前会话输入框；本机文件夹等不可映射为工作区相对路径的条目跳过。
+                val text = paths.mapNotNull { path ->
+                    if (WorkspacePathMapper.isLocalFolderContainerPath(path)) {
+                        null
+                    } else {
+                        path.removePrefix("${WorkspacePathMapper.CONTAINER_ROOT}/")
+                            .takeIf { it != path } // 不在工作区根下（无法引用）则跳过
+                    }
+                }.joinToString(" ") { "@$it" }.let { if (it.isEmpty()) "" else "$it " }
+                if (text.isNotEmpty()) agentViewModel.appendInputDraft(text)
+                if (!permanentDrawer) scope.launch { drawerState.close() }
+            },
             onExportEntries = { paths, uri ->
                 agentViewModel.exportEntries(paths, uri) { ok ->
                     if (!ok) toastFileOpFailed(context, R.string.file_browser_export_failed)

@@ -152,6 +152,7 @@ import compose.icons.feathericons.Plus
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Server
 import compose.icons.feathericons.Search
+import compose.icons.feathericons.Send
 import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Trash2
 import compose.icons.feathericons.X
@@ -242,6 +243,7 @@ fun ChatDrawerContent(
     onUploadFolder: (String, Uri) -> Unit = { _, _ -> },
     // 文件管理增强：分享/导入/导出/批量移动/复制
     onShareEntries: (Set<String>) -> Unit,
+    onSendSelectionToChat: (Set<String>) -> Unit = {},
     onExportEntries: (Set<String>, Uri) -> Unit,
     onImportFiles: (List<Uri>, String) -> Unit,
     onCopyEntries: (Set<String>) -> Unit,
@@ -484,6 +486,7 @@ fun ChatDrawerContent(
                     onUploadFiles = onUploadFiles,
                     onUploadFolder = onUploadFolder,
                     onShareEntries = onShareEntries,
+                    onSendSelectionToChat = onSendSelectionToChat,
                     onExportEntries = onExportEntries,
                     onImportFiles = onImportFiles,
                     onCopyEntries = onCopyEntries,
@@ -1061,6 +1064,7 @@ private fun FileBrowserTab(
     onUploadFiles: (String, List<Uri>) -> Unit,
     onUploadFolder: (String, Uri) -> Unit,
     onShareEntries: (Set<String>) -> Unit,
+    onSendSelectionToChat: (Set<String>) -> Unit,
     onExportEntries: (Set<String>, Uri) -> Unit,
     onImportFiles: (List<Uri>, String) -> Unit,
     onCopyEntries: (Set<String>) -> Unit,
@@ -1596,6 +1600,17 @@ private fun FileBrowserTab(
                                 onClick = {
                                     showSelectionMore = false
                                     toggleSelectAll()
+                                }
+                            )
+                            // 发送至聊天：把选中项按 @引用 追加进当前会话输入框，随后收起侧栏由上层处理。
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.file_browser_send_to_chat)) },
+                                leadingIcon = { Icon(FeatherIcons.Send, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showSelectionMore = false
+                                    onSendSelectionToChat(selectedPaths)
+                                    selectedPaths = emptySet()
+                                    unselectedFromFolders = emptySet()
                                 }
                             )
                         }

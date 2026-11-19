@@ -1367,6 +1367,7 @@
     <string name="file_browser_move">Move to here</string>
     <string name="file_browser_select_mode">Select</string>
     <string name="file_browser_select_all">Select all</string>
+    <string name="file_browser_send_to_chat">Send to chat</string>
     <string name="file_browser_cancel_selection">Cancel selection</string>
     <string name="file_browser_selected_count">%1$d selected</string>
     <string name="file_browser_share_failed">Share failed</string>

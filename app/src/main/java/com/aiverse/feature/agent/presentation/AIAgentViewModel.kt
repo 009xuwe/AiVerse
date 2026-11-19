@@ -225,6 +225,7 @@ class AIAgentViewModel @Inject constructor(
     private val modelCostCalculator: ModelCostCalculator,
     private val aiProviderRepository: AIProviderRepository,
     private val defaultModelSettingsRepository: DefaultModelSettingsRepository,
+    private val defaultRoleSettingsRepository: DefaultRoleSettingsRepository,
     private val modelReasoningEffortRepository: ModelReasoningEffortRepository,
     private val modelMetadataService: ModelMetadataService,
     private val toolPermissionManager: ToolPermissionManager,
@@ -410,6 +411,18 @@ class AIAgentViewModel @Inject constructor(
         val id = _currentSessionId.value ?: return
         _inputDrafts.value = _inputDrafts.value - id
         draftPrefs.edit().remove(id).apply()
+    }
+
+    /**
+     * 在当前会话草稿末尾追加一段文本（如文件树「发送至聊天」的 @引用）。
+     * 复用 handleUiRequest 的 SetDraft append 分支语义：原草稿为空则直接写入，
+     * 否则与原草稿隔一个空行拼接；始终基于最新草稿，避免与优化输入的流式回填相互覆盖。
+     */
+    fun appendInputDraft(text: String) {
+        val id = _currentSessionId.value ?: return
+        val existing = _inputDrafts.value[id].orEmpty()
+        val next = if (existing.isBlank()) text else existing.trimEnd() + "\n\n" + text
+        updateInputDraft(next)
     }
 
     /**
@@ -3715,11 +3728,13 @@ class AIAgentViewModel @Inject constructor(
         } else {
             ReasoningEffort.MEDIUM.name
         }
+        val roleId = defaultRoleSettingsRepository.getDefaultRoleId()
         return sessionUseCase.newSessionEntity(
             workspacePath = workspacePath,
             providerId = providerId,
             model = model,
-            reasoningEffort = effort
+            reasoningEffort = effort,
+            roleId = roleId
         )
     }
 
