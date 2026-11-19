@@ -94,7 +94,7 @@
     <string name="tool_browser_condition_met">Condition met.</string>
     <string name="tool_browser_wait_timeout">Timed out before the condition was met.</string>
     <string name="tool_output_saved_hint">Full output saved to %1$s. Use readFile to read it in sections.</string>
-    <string name="tool_output_unsaved_hint">Saving the full output failed. Only the beginning and end are available; try again with a smaller output range.</string>
+    <string name="tool_output_unsaved_hint">Saving full output failed; only head and tail kept. Retry with a smaller output range.</string>
     <string name="tool_output_omitted">\n\n[Omitted %1$d characters from the middle. %2$s]\n\n</string>
     <string name="chat_context_usage_estimated">Estimated input budget usage: %1$d%%</string>
     <string name="agent_input_budget_exceeded">Context exceeds the model input budget. Shorten the input or reduce tool definitions.</string>
@@ -266,7 +266,7 @@
     <string name="settings_compaction_threshold_input_hint">Integer percentage between 1 and 100</string>
     <string name="settings_general_tools">Tools</string>
     <string name="settings_mcp_lazy_tools">MCP lazy tool loading (experimental)</string>
-    <string name="settings_mcp_lazy_tools_desc">With many tools, expose only search/call entries to reduce context; built-in tools are unaffected. Off by default.</string>
+    <string name="settings_mcp_lazy_tools_desc">Expose only search/call entries when tools are many; built-in tools unaffected. Off by default.</string>
     <string name="settings_sendfile_max_size">sendFile max file size</string>
     <string name="settings_sendfile_max_size_desc">Per-file size cap; exceeding it fails the whole batch</string>
     <string name="settings_mb_value">%1$d MB</string>
@@ -458,7 +458,7 @@
     <string name="plugins_overlay_channel">Plugin overlays</string>
     <string name="plugins_overlay_channel_desc">Keeps the foreground service while plugin overlays are running</string>
     <string name="plugins_dev_mode">Developer sideload</string>
-    <string name="plugins_dev_mode_desc">When enabled, the Dev tab lists plugin projects in the dev directory and reloads them when files change. For development only.</string>
+    <string name="plugins_dev_mode_desc">Dev tab lists plugin projects in the dev directory and reloads them on file changes. Debug only.</string>
     <string name="plugins_dev_root">Dev directory: %1$s</string>
     <string name="plugins_docs_about">About plugins</string>
     <string name="plugins_docs_dev">Develop plugins</string>
@@ -876,7 +876,7 @@
     <string name="settings_permission_granted">Allowed</string>
     <string name="settings_permission_denied">Not allowed</string>
     <string name="settings_permission_notification_title">Notification permission required</string>
-    <string name="settings_permission_notification_denied_desc">Background keepalive and completion notifications need the notification permission; enable it manually in system settings.</string>
+    <string name="settings_permission_notification_denied_desc">Keepalive and completion notifications need notification permission; enable it in system settings.</string>
     <string name="settings_permission_storage_denied_desc">Storage permission was denied and can no longer be requested. Please enable it manually in system settings</string>
     <!-- Settings category titles -->
     <string name="settings_category_ai">AI Configuration</string>
@@ -949,7 +949,7 @@
     <string name="common_disabled">Disabled</string>
     <string name="credential_token">Access Token / PAT</string>
     <string name="credential_auto_inject_title">Auto-inject credentials</string>
-    <string name="credential_auto_inject_hint">Sync app-saved git credentials to this remote server, effective only for repos under the current workspace root.</string>
+    <string name="credential_auto_inject_hint">Sync saved git credentials to this server; applies only to repos under the current workspace root.</string>
     <string name="credential_auto_inject_prompt_title">Auto-inject git credentials?</string>
     <string name="credential_auto_inject_prompt_body">Sync app-saved git credentials to this remote server? Only for repos under the current workspace root; server global git config unchanged.</string>
     <string name="credential_auto_inject_enable">Enable</string>
@@ -2206,13 +2206,13 @@
     <string name="perm_safety_confirm_action_ready">Confirm</string>
     <string name="perm_global_auto_approve">Allow all tools in one tap</string>
     <string name="perm_global_auto_approve_desc">All sessions stop asking for permission; catastrophic deletes and Shizuku are still intercepted.</string>
-    <string name="perm_overlay_ball">Overlay ball</string>
+    <string name="perm_overlay_ball">Floating ball</string>
     <string name="perm_overlay_ball_desc">Floating ball on screen: tap to switch apps, long-press for panel. Needs overlay permission.</string>
     <string name="settings_permission_overlay">Display over other apps</string>
-    <string name="settings_permission_overlay_desc">Allow showing content above other apps (overlay ball, plugin overlays)</string>
-    <string name="overlay_ball_channel">Overlay ball</string>
-    <string name="overlay_ball_notification">Overlay ball is on: tap to switch apps, long-press to open control panel</string>
-    <string name="overlay_ball_panel_title">Floating Ball</string>
+    <string name="settings_permission_overlay_desc">Allow content above other apps (floating ball, plugin overlays)</string>
+    <string name="overlay_ball_channel">Floating ball</string>
+    <string name="overlay_ball_notification">Floating ball is on: tap to switch apps, long-press for control panel</string>
+    <string name="overlay_ball_panel_title">Floating ball</string>
     <string name="overlay_ball_size_label">Size</string>
     <string name="overlay_ball_size_value">%1$ddp</string>
     <string name="overlay_ball_alpha_label">Hide opacity</string>
@@ -2439,7 +2439,7 @@
     <string name="ssh_host_key_changed_title">SSH Host Key Changed</string>
     <string name="ssh_host_key_trust">Trust and connect</string>
     <string name="ssh_host_key_reject">Reject</string>
-    <string name="ssh_host_key_settings_desc">Confirmed host fingerprints help prevent man-in-the-middle attacks. Verify again after reinstalling or rotating a server key.</string>
+    <string name="ssh_host_key_settings_desc">Confirmed host fingerprints prevent MITM attacks; re-verify after server reinstall or key rotation.</string>
     <string name="ssh_host_key_empty">No saved host fingerprints</string>
     <string name="ssh_host_key_fingerprint_value">Fingerprint: %1$s</string>
     <string name="ssh_host_key_remove">Remove fingerprint</string>
@@ -2700,7 +2700,7 @@
     <string name="onboarding_done">Done</string>
     <string name="onboarding_step_badge">Guide %1$d/%2$d</string>
     <string name="onboarding_open_terminal_title">Set up container</string>
-    <string name="onboarding_open_terminal_desc">Tap "Terminal" at top-right to install the common environment; missing items are listed, type aiverse to install.</string>
+    <string name="onboarding_open_terminal_desc">Tap Terminal at top-right to install the common environment; type aiverse to add missing items.</string>
     <string name="onboarding_back_from_terminal_title">Go back</string>
     <string name="onboarding_back_from_terminal_desc">After container setup, tap top-left back to return and continue configuring your AI model.</string>
     <string name="onboarding_back_need_install">Finish the terminal environment installation (base tools &amp; runtimes) before going back</string>
@@ -2835,7 +2835,7 @@
     <string name="memory_delete_selected_confirm_title">Delete Selected Memories</string>
     <string name="memory_delete_selected_confirm_message">Delete the %1$d selected memories? This cannot be undone.</string>
     <!-- Memory fake-plugin switch -->
-    <string name="memory_toggle_subtitle">Toggle on the right. Turning it off hides the Memory entry and stops the AI reading/writing memories; stored memories are kept.</string>
+    <string name="memory_toggle_subtitle">Toggle at right. Off hides the Memory entry and stops AI memory access; stored memories stay.</string>
     <string name="plugin_memory_name">Memory</string>
     <string name="plugin_memory_description">AI long-term memory (built-in). Turning it off hides the Memory entry in Settings and stops the AI reading/writing memories; stored memories are kept.</string>
     <string name="memory_disabled_error">Memory is off. Turn on Memory in Settings to retry.</string>
