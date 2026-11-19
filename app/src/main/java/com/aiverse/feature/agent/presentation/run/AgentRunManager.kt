@@ -355,7 +355,7 @@ class AgentRunManager @Inject constructor(
             subAgentEventBus.events.collect { event ->
                 when (event.type) {
                     SubAgentEventType.SPAWNED -> {
-                        markSubAgentRunning(event.subSessionId)
+                        markSubAgentRunning(event.subSessionId, event.parentSessionId)
                         spawnSubAgentWorkflow(event)
                     }
                     SubAgentEventType.STOPPED -> {
@@ -883,7 +883,7 @@ class AgentRunManager @Inject constructor(
         _retryStates.value = _retryStates.value - sessionId
     }
 
-    private fun markSubAgentRunning(subSessionId: String) {
+    private fun markSubAgentRunning(subSessionId: String, parentSessionId: String? = null) {
         scope.launch {
             val session = runCatching { sessionUseCase.getSessionById(subSessionId) }.getOrNull()
             _subAgentCards.value = _subAgentCards.value + (
@@ -892,7 +892,8 @@ class AgentRunManager @Inject constructor(
                     agentName = session?.subagentType?.takeIf { it.isNotBlank() && it != "subagent" },
                     title = session?.title.orEmpty(),
                     status = SubAgentCardStatus.RUNNING,
-                    startedAt = System.currentTimeMillis()
+                    startedAt = System.currentTimeMillis(),
+                    parentSessionId = parentSessionId ?: session?.parentId
                 )
                 )
         }
@@ -914,7 +915,8 @@ class AgentRunManager @Inject constructor(
                 excerpt = digest?.excerpt ?: previous?.excerpt,
                 changedFiles = digest?.changedFiles?.takeIf { it.isNotEmpty() } ?: previous?.changedFiles.orEmpty(),
                 elapsedMs = System.currentTimeMillis() - startedAt,
-                startedAt = startedAt
+                startedAt = startedAt,
+                parentSessionId = previous?.parentSessionId
             )
             )
         if (_subAgentCards.value.size > MAX_SUBAGENT_CARDS) {
