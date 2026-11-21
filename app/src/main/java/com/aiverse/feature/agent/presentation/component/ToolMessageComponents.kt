@@ -343,6 +343,13 @@ internal fun ToolMessageBody(
                         val truncated = remember(liveOutput) { liveOutput.takeLastLines(TOOL_SECTION_LINE_LIMIT) }
                         Spacer(Modifier.height(t.sm))
                         ToolSection(label = stringResource(R.string.tool_result), content = truncated, live = true)
+                    } else {
+                        // 命令已启动但尚无输出（构建 / 安装 / 等待期间）：显示占位文案，避免展开后一大片空白。
+                        Spacer(Modifier.height(t.sm))
+                        ToolSection(
+                            label = stringResource(R.string.tool_result),
+                            content = stringResource(R.string.chat_tool_running)
+                        )
                     }
                 }
             }

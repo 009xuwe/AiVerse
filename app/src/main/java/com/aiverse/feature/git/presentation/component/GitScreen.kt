@@ -91,7 +91,7 @@ import compose.icons.feathericons.Download
 import compose.icons.feathericons.Folder
 import compose.icons.feathericons.GitBranch
 import compose.icons.feathericons.GitCommit
-import compose.icons.feathericons.GitPullRequest
+import compose.icons.feathericons.GitMerge
 import compose.icons.feathericons.Key
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.X
@@ -417,7 +417,8 @@ fun GitScreen(
                             onBulkClose = viewModel::bulkCloseSelected,
                             onBulkAddLabels = viewModel::bulkAddLabelsToSelected,
                             onBulkAssign = viewModel::bulkSetAssigneesToSelected,
-                            onCreateIssue = { showCreateIssue = true }
+                            onCreateIssue = { showCreateIssue = true },
+                            onAskAgent = onAskAgent
                         )
                         GitTab.PULLS -> PullRequestsTab(
                             pulls = state.pulls,
@@ -452,7 +453,7 @@ fun GitScreen(
                     FloatingTabItem(FeatherIcons.GitBranch, stringResource(R.string.git_tab_branches)),
                     FloatingTabItem(FeatherIcons.GitCommit, stringResource(R.string.git_tab_commits)),
                     FloatingTabItem(FeatherIcons.AlertCircle, stringResource(R.string.git_tab_issues)),
-                    FloatingTabItem(FeatherIcons.GitPullRequest, stringResource(R.string.git_tab_pulls))
+                    FloatingTabItem(FeatherIcons.GitMerge, stringResource(R.string.git_tab_pulls))
                 ),
                 maskColor = settingsPageBackground(),
                 isScrolling = tabsScrolling,

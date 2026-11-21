@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
@@ -66,7 +67,7 @@ import com.aiverse.feature.git.domain.model.IssueLabel
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.CheckCircle
 import compose.icons.feathericons.Plus
-import compose.icons.feathericons.User
+import compose.icons.feathericons.Zap
 import coil.compose.AsyncImage
 
 /** GitHub issue 状态色：open 绿 / closed 紫。 */
@@ -114,7 +115,8 @@ internal fun IssuesTab(
     onBulkClose: () -> Unit = {},
     onBulkAddLabels: (List<String>) -> Unit = {},
     onBulkAssign: (List<String>) -> Unit = {},
-    onCreateIssue: () -> Unit = {}
+    onCreateIssue: () -> Unit = {},
+    onAskAgent: (String) -> Unit = {}
 ) {
     // remoteUrl 变化（如切换仓库）时懒加载；仅 GitHub 且有 token 时触发。
     LaunchedEffect(remoteUrl) {
@@ -127,6 +129,10 @@ internal fun IssuesTab(
     // 批量分配受理人弹窗的输入状态。
     var assigneeDialogVisible by remember { mutableStateOf(false) }
     var assigneeInput by remember { mutableStateOf("") }
+    // 预构造各 issue 的 AI 处理提示词：stringResource 只能在组合期调用，不能在点击回调里用。
+    val promptByIssue = issues.associate { issue ->
+        issue.number to stringResource(R.string.git_issue_ai_prompt, issue.number, issue.title, issue.userLogin)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (isGitHub && hasToken) {
@@ -138,7 +144,14 @@ internal fun IssuesTab(
                     onSelectAll = onSelectAll,
                     onBulkClose = onBulkClose,
                     onBulkAddLabel = { labelDialogVisible = true },
-                    onBulkAssign = { assigneeDialogVisible = true }
+                    onBulkAssign = { assigneeDialogVisible = true },
+                    onBulkAiSolve = {
+                        val prompt = selected.mapNotNull { promptByIssue[it] }.joinToString("\n\n")
+                        if (prompt.isNotBlank()) {
+                            onAskAgent(prompt)
+                            onClearSelection()
+                        }
+                    }
                 )
             } else {
                 Row(
@@ -267,8 +280,10 @@ private fun BulkActionBar(
     onSelectAll: () -> Unit,
     onBulkClose: () -> Unit,
     onBulkAddLabel: () -> Unit,
-    onBulkAssign: () -> Unit
+    onBulkAssign: () -> Unit,
+    onBulkAiSolve: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.semanticColors.cardSurface, shape = RoundedCornerShape(Radius.md)) {
         Column(
             modifier = Modifier
@@ -281,22 +296,47 @@ private fun BulkActionBar(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(Spacing.xs))
+            // 主操作「让 AI 解决」留在顶栏，其余批量操作收进「更多」菜单，避免顶栏横向滑动误触翻页。
             Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                TextButton(onClick = onClear) { Text(stringResource(R.string.git_issue_clear_selection)) }
-                TextButton(onClick = onSelectAll) { Text(stringResource(R.string.git_issue_select_all)) }
-                TextButton(onClick = onBulkClose, enabled = !busy && selectedCount > 0) {
-                    Text(stringResource(R.string.git_issue_bulk_close))
-                }
-                TextButton(onClick = onBulkAddLabel, enabled = !busy && selectedCount > 0) {
-                    Text(stringResource(R.string.git_issue_bulk_add_label))
-                }
-                TextButton(onClick = onBulkAssign, enabled = !busy && selectedCount > 0) {
-                    Icon(FeatherIcons.User, contentDescription = null, modifier = Modifier.size(16.dp))
+                TextButton(onClick = onBulkAiSolve, enabled = !busy && selectedCount > 0) {
+                    Icon(FeatherIcons.Zap, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(Spacing.xs))
-                    Text(stringResource(R.string.git_issue_bulk_assign))
+                    Text(stringResource(R.string.git_issue_ai_bulk_action))
+                }
+                Spacer(Modifier.weight(1f))
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_more))
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.git_issue_bulk_close)) },
+                            onClick = { menuExpanded = false; onBulkClose() },
+                            enabled = !busy && selectedCount > 0
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.git_issue_bulk_add_label)) },
+                            onClick = { menuExpanded = false; onBulkAddLabel() },
+                            enabled = !busy && selectedCount > 0
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.git_issue_bulk_assign)) },
+                            onClick = { menuExpanded = false; onBulkAssign() },
+                            enabled = !busy && selectedCount > 0
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.git_issue_select_all)) },
+                            onClick = { menuExpanded = false; onSelectAll() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.git_issue_clear_selection)) },
+                            onClick = { menuExpanded = false; onClear() }
+                        )
+                    }
                 }
             }
         }

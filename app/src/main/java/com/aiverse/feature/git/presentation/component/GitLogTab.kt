@@ -280,9 +280,9 @@ internal fun LogTab(
         ) {
             itemsIndexed(commits, key = { _, c -> c.hash }) { index, c ->
                 val shape = when {
-                    index == 0 && commits.size == 1 && (!graph.hasMore || searchQuery.isNotBlank()) -> RoundedCornerShape(Radius.lg)
+                    index == 0 && commits.size == 1 && searchQuery.isNotBlank() -> RoundedCornerShape(Radius.lg)
                     index == 0 -> RoundedCornerShape(topStart = Radius.lg, topEnd = Radius.lg)
-                    index == commits.lastIndex && (!graph.hasMore || searchQuery.isNotBlank()) -> RoundedCornerShape(bottomStart = Radius.lg, bottomEnd = Radius.lg)
+                    index == commits.lastIndex && searchQuery.isNotBlank() -> RoundedCornerShape(bottomStart = Radius.lg, bottomEnd = Radius.lg)
                     else -> RectangleShape
                 }
                 Surface(

@@ -1720,6 +1720,33 @@ class AIAgentViewModel @Inject constructor(
         _unattachedErrors.value = _unattachedErrors.value - sessionId
     }
 
+    /**
+     * 收集 AgentRunManager 的会话错误状态（LLM 调用失败、工具批处理异常等），
+     * 把错误文本填充到 [unattachedErrors]，供 AIChatPanel 的 ErrorBubble 展示。
+     * （B2a 运行器重构后填充点缺失，导致模型调用失败等错误一直不显示。）
+     */
+    private val handledAgentErrors = mutableMapOf<String, String>()
+
+    init {
+        viewModelScope.launch {
+            agentRunManager.agentStates.collect { states ->
+                // 会话已脱离 Error（重新运行 / 恢复）时清除记录，使下一次相同错误能重新提示。
+                handledAgentErrors.keys.removeAll { sid ->
+                    states[sid] !is AgentUIState.Error
+                }
+                states.forEach { (sid, state) ->
+                    if (state is AgentUIState.Error && state.message.isNotBlank()) {
+                        if (handledAgentErrors[sid] == state.message) return@forEach
+                        handledAgentErrors[sid] = state.message
+                        // 统一走「会话末尾错误气泡」：失败消息可能未落库，按消息 id 关联渲染不可靠，
+                        // 按 sessionId 关联（尾部 ErrorBubble）能稳定显示。
+                        _unattachedErrors.value = _unattachedErrors.value + (sid to state.message)
+                    }
+                }
+            }
+        }
+    }
+
 
     /**
      * 失败文案：服务端给了类型码（如拒答/上下文超限）时用本地化说明，

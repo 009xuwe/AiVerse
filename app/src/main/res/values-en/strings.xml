@@ -1738,6 +1738,7 @@
     <string name="git_issue_clear_selection">Cancel selection</string>
     <string name="git_issue_select_all">Select all</string>
     <string name="git_issue_bulk_close">Close selected</string>
+    <string name="git_issue_ai_bulk_action">Let AI solve</string>
     <string name="git_issue_bulk_add_label">Add label</string>
     <string name="git_issue_bulk_label_hint">Add labels</string>
     <string name="git_issue_label_names">Label names (comma separated)</string>
