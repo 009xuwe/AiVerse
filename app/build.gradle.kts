@@ -443,8 +443,13 @@ dependencies {
     implementation("org.apache.ftpserver:ftpserver-core:1.2.0")
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
-    // 头像图片加载（GitHub 作者头像，按作者名拼 URL，无需用户手动输入）
+    // 图片异步加载（GitHub 作者头像、正文内嵌远程图片）。Coil 2.x 只加依赖不注册 Decoder 不会
+    // 自动启用对应能力，GIF / 动图 / SVG 解码器由 core/ui/CoilImageSupport 统一注册。
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // GIF（含动图）解码，API 26/27 上作为 ImageDecoderDecoder 的兜底。
+    implementation("io.coil-kt:coil-gif:2.7.0")
+    // SVG 解码（AndroidSVG），让查看器与正文能直接渲染 .svg。
+    implementation("io.coil-kt:coil-svg:2.7.0")
 
     // 容器：解压 Alpine rootfs tar.gz（正确处理 symlink/hardlink/权限位）
     implementation("org.apache.commons:commons-compress:1.26.2")

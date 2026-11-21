@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.aiverse.R
 import com.aiverse.core.util.ImageDownscaler
+import com.aiverse.core.util.TEXT_EXTS
+import com.aiverse.core.util.extToMimeType
 import com.aiverse.feature.agent.domain.model.AgentImage
 import com.aiverse.feature.agent.domain.model.InstalledApp
 import com.aiverse.feature.agent.presentation.AgentAttachment
@@ -185,10 +187,11 @@ private fun imageMimeType(context: Context, uri: Uri, fileName: String): String 
 
 private fun fileMimeType(context: Context, uri: Uri, fileName: String): String =
     context.contentResolver.getType(uri)?.lowercase()
-        ?: when (fileName.substringAfterLast('.', "").lowercase()) {
-            "txt", "md", "kt", "java", "js", "ts", "json", "xml", "html", "css", "py", "sh", "gradle", "kts" -> "text/plain"
-            "pdf" -> "application/pdf"
-            else -> "application/octet-stream"
+        // 纯文本 / 代码归 text/plain；其余（图片、PDF、Office、压缩包…）走统一 MIME 表。
+        ?: if (fileName.substringAfterLast('.', "").lowercase() in TEXT_EXTS) {
+            "text/plain"
+        } else {
+            extToMimeType(fileName) ?: "application/octet-stream"
         }
 
 internal suspend fun copyUriToWorkspace(

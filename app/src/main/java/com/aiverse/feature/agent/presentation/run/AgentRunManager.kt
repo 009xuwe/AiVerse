@@ -1153,14 +1153,11 @@ class AgentRunManager @Inject constructor(
         notificationSeqs: List<Long> = emptyList()
     ): Job {
         val runToken = Any()
-        if (targetSessionId != null && !request.startsWith("/")) {
+        if (targetSessionId != null) {
             streamingAssistantStore.startRun(targetSessionId, runToken)
         }
         return scope.launch {
         val sessionId = targetSessionId ?: return@launch
-        if (request.startsWith("/")) {
-            return@launch
-        }
         coroutineContext[Job]?.let { sessionJobs[sessionId] = it }
         val currentSession = sessionUseCase.getSessionById(sessionId)
         if (currentSession != null && (currentSession.providerId.isNullOrBlank() || currentSession.model.isNullOrBlank())) {

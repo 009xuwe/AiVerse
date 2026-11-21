@@ -1,7 +1,6 @@
 package com.aiverse.feature.agent.presentation.component
 
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.Image as ComposeImage
 import androidx.compose.foundation.clickable
@@ -32,12 +31,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import com.aiverse.R
 import com.aiverse.core.theme.Brand
 import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.ui.LocalImageViewer
+import com.aiverse.core.ui.copyToShareCache
+import com.aiverse.core.ui.isShareableFile
+import com.aiverse.core.ui.openFileExternal
 import com.aiverse.core.ui.LocalMediaViewer
 import com.aiverse.core.ui.MediaKind
 import com.aiverse.core.ui.ThumbnailCache
@@ -250,12 +251,12 @@ fun interface AttachmentOpener {
 internal val LocalAttachmentOpener = staticCompositionLocalOf<AttachmentOpener> { AttachmentOpener { } }
 
 /**
- * 用系统对应 app 打开附件文件（FileProvider 授权 URI）。
+ * 用系统对应 app 打开附件文件（APK 走安装器，其余交 [openFileExternal] 授权分享）。
  *
  * 卡片记录的 [AgentAttachment.localPath] 不保证仍然有效：远程 SSH 模式下它是 `copyToLocal` 的临时副本
  * （进程重启或系统清缓存后消失），外部本地目录工作区、自定义挂载源的文件又落在 FileProvider 声明的目录树之外。
- * 因此失效时退回 [AgentAttachment.containerPath] 经 [fileAccess] 重取，重取到的路径仍无法授权时
- * 再复制进 cacheDir（已由 cache-path 覆盖）分享。文件确实不存在与最终无法分享分别提示，不再混用一句文案。
+ * 因此失效时退回 [AgentAttachment.containerPath] 经 [fileAccess] 重取，无法授权的位置由 [openFileExternal]
+ * 复制进 cacheDir（已由 cache-path 覆盖）再分享。文件确实不存在与最终无法分享分别提示，不再混用一句文案。
  */
 internal suspend fun openSentAttachment(
     context: Context,
@@ -271,7 +272,7 @@ internal suspend fun openSentAttachment(
     // 外部本地目录工作区、自定义挂载源的文件不在 FileProvider 目录树内，先拷进 cacheDir 再授权。
     if (isApk(attachment)) {
         val installable = withContext(Dispatchers.IO) {
-            if (isShareable(context, local)) local else copyToShareCache(context, local)
+            if (isShareableFile(context, local)) local else copyToShareCache(context, local)
         }
         if (installable == null) {
             Toast.makeText(context, context.getString(R.string.chat_open_file_unshareable), Toast.LENGTH_SHORT).show()
@@ -290,24 +291,8 @@ internal suspend fun openSentAttachment(
         }
         return
     }
-    val shareable = withContext(Dispatchers.IO) {
-        if (isShareable(context, local)) local else copyToShareCache(context, local)
-    }
-    val uri = shareable?.let {
-        runCatching { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) }.getOrNull()
-    }
-    if (uri == null) {
-        Toast.makeText(context, context.getString(R.string.chat_open_file_unshareable), Toast.LENGTH_SHORT).show()
-        return
-    }
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(uri, attachment.mimeType.ifBlank { "*/*" })
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    try {
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        Toast.makeText(context, context.getString(R.string.chat_open_file_no_app), Toast.LENGTH_SHORT).show()
-    }
+    // 非 APK：交给 core 的统一「用系统应用打开」（FileProvider 授权 + ACTION_VIEW + 无应用兜底 Toast）。
+    openFileExternal(context, local, attachment.mimeType)
 }
 
 /** 非图片附件的缩略图标：音视频按类型给 Music/Video，其余通用文件图标。 */
@@ -325,24 +310,6 @@ private suspend fun resolveLocalFile(attachment: AgentAttachment, fileAccess: Fi
     if (containerPath.isBlank()) return null
     return runCatching { fileAccess.copyToLocal(containerPath) }.getOrNull()?.takeIf { it.isFile }
 }
-
-/** 路径落在 FileProvider 声明的目录树内时可直接授权；不能就抛异常，故按能否取到 URI 判定。 */
-private fun isShareable(context: Context, file: File): Boolean =
-    runCatching { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file) }.isSuccess
-
-/**
- * 把无法直接授权的文件（外部本地目录工作区、自定义挂载源、SD 卡等）复制进 cacheDir 再分享。
- * 目标目录按源路径散列分隔：既避开同名文件互相覆盖，也不把散列值挂进分享出去的文件名。
- */
-private fun copyToShareCache(context: Context, source: File): File? = runCatching {
-    val dir = File(File(context.cacheDir, SHARE_CACHE_DIR), source.absolutePath.hashCode().toString())
-    dir.mkdirs()
-    val target = File(dir, source.name.ifBlank { "file" })
-    source.copyTo(target, overwrite = true)
-    target
-}.getOrNull()
-
-private const val SHARE_CACHE_DIR = "sent_files"
 
 private fun isApk(attachment: AgentAttachment): Boolean {
     if (attachment.mimeType.equals("application/vnd.android.package-archive", ignoreCase = true)) return true

@@ -923,6 +923,9 @@
     <string name="common_play">播放</string>
     <string name="common_pause">暂停</string>
     <string name="common_media_load_failed">无法播放该文件，文件可能已被移动或删除</string>
+    <string name="common_pdf_preview">PDF 预览</string>
+    <string name="common_pdf_load_failed">PDF 加载失败，文件可能已加密或已损坏</string>
+    <string name="pdf_viewer_page">第 %1$d / %2$d 页</string>
     <string name="common_expand">展开</string>
     <string name="common_workspace">工作区</string>
     <string name="common_tool">工具</string>

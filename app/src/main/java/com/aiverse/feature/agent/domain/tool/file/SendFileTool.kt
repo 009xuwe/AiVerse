@@ -1,6 +1,8 @@
 package com.aiverse.feature.agent.domain.tool.file
 
 import com.aiverse.core.util.FileLogger
+import com.aiverse.core.util.TEXT_EXTS
+import com.aiverse.core.util.extToMimeType
 import com.aiverse.feature.agent.domain.tool.AgentTool
 import com.aiverse.feature.agent.domain.tool.ParameterType
 import com.aiverse.feature.agent.domain.tool.ToolCapability
@@ -19,7 +21,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.URLConnection
 import javax.inject.Inject
 
 /**
@@ -156,19 +157,13 @@ class SendFileTool @Inject constructor(
     }
 
     private fun guessMimeType(fileName: String): String {
-        val extMime = when (fileName.substringAfterLast('.', "").lowercase()) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "png" -> "image/png"
-            "webp" -> "image/webp"
-            "gif" -> "image/gif"
-            "bmp" -> "image/bmp"
-            "pdf" -> "application/pdf"
-            "zip" -> "application/zip"
-            "txt", "md", "kt", "java", "js", "ts", "json", "xml", "html", "css", "py", "sh", "gradle", "kts" -> "text/plain"
-            "apk" -> "application/vnd.android.package-archive"
-            else -> null
+        // 纯文本类刻意不走统一表：交给系统应用打开时 text/plain 反而打不开，模型侧则要 text/plain。
+        val extMime = if (fileName.substringAfterLast('.', "").lowercase() in TEXT_EXTS) {
+            "text/plain"
+        } else {
+            extToMimeType(fileName)
         }
-        return extMime ?: URLConnection.guessContentTypeFromName(fileName) ?: "application/octet-stream"
+        return extMime ?: "application/octet-stream"
     }
 
     private companion object {

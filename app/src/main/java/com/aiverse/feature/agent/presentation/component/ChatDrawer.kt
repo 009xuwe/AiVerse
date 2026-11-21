@@ -141,6 +141,7 @@ import compose.icons.feathericons.Clipboard
 import compose.icons.feathericons.Copy
 import compose.icons.feathericons.Download
 import compose.icons.feathericons.Edit2
+import compose.icons.feathericons.ExternalLink
 import compose.icons.feathericons.Eye
 import compose.icons.feathericons.FilePlus
 import compose.icons.feathericons.Folder
@@ -163,6 +164,7 @@ import compose.icons.feathericons.Upload
 import compose.icons.feathericons.UploadCloud
 import androidx.compose.ui.res.stringResource
 import com.aiverse.R
+import com.aiverse.core.util.isOfficeDocument
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.YearMonth
@@ -225,6 +227,7 @@ fun ChatDrawerContent(
     pasteConflict: Pair<String, String>? = null,
     onToggleExpand: (String) -> Unit,
     onOpenFile: (String) -> Unit,
+    onOpenWith: (String) -> Unit,
     onRefreshBrowse: () -> Unit,
     onCreateFile: (String, String) -> Unit,
     onCreateFolder: (String, String) -> Unit,
@@ -471,6 +474,7 @@ fun ChatDrawerContent(
                     clipboard = clipboard,
                     onToggleExpand = onToggleExpand,
                     onOpenFile = onOpenFile,
+                    onOpenWith = onOpenWith,
                     onRefresh = onRefreshBrowse,
                     onCreateFile = onCreateFile,
                     onCreateFolder = onCreateFolder,
@@ -1049,6 +1053,7 @@ private fun FileBrowserTab(
     clipboard: BrowseClipboard?,
     onToggleExpand: (String) -> Unit,
     onOpenFile: (String) -> Unit,
+    onOpenWith: (String) -> Unit,
     onRefresh: () -> Unit,
     onCreateFile: (String, String) -> Unit,
     onCreateFolder: (String, String) -> Unit,
@@ -1696,11 +1701,21 @@ private fun FileBrowserTab(
                 onRemoveLocalFolder(root.hostPath)
             }
         } else null
+        // Office 文档应用内打不开（进编辑器只会被当二进制拒绝）：给一个「用其他应用打开」出口。
+        val openWithAction: (() -> Unit)? = if (node.entry.isDirectory || !isOfficeDocument(node.path)) {
+            null
+        } else {
+            {
+                menuNode = null
+                onOpenWith(node.path)
+            }
+        }
         FileTreeActionSheet(
             node = node,
             clipboard = clipboard,
             onUploadFile = uploadFileAction,
             onUploadFolder = uploadFolderAction,
+            onOpenWith = openWithAction,
             onRemoveLocalFolder = removeFolderAction,
             onNewFile = {
                 menuNode = null
@@ -1920,6 +1935,7 @@ private fun FileTreeActionSheet(
     clipboard: BrowseClipboard?,
     onUploadFile: (() -> Unit)?,
     onUploadFolder: (() -> Unit)?,
+    onOpenWith: (() -> Unit)?,
     onRemoveLocalFolder: (() -> Unit)?,
     onNewFile: () -> Unit,
     onNewFolder: () -> Unit,
@@ -1987,6 +2003,14 @@ private fun FileTreeActionSheet(
                 SheetActionRow(
                     icon = FeatherIcons.UploadCloud,
                     label = stringResource(R.string.file_browser_upload_folder),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    onClick = action
+                )
+            }
+            onOpenWith?.let { action ->
+                SheetActionRow(
+                    icon = FeatherIcons.ExternalLink,
+                    label = stringResource(R.string.attachment_open_external),
                     tint = MaterialTheme.colorScheme.onSurface,
                     onClick = action
                 )

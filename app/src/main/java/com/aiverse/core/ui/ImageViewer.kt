@@ -285,6 +285,15 @@ fun fitInside(image: IntSize, container: IntSize): Size {
     return Size(image.width * ratio, image.height * ratio)
 }
 
+/** 单击点落在 Fit 后内容区之外（两侧 / 上下黑边）时为 true；用于「点空白关闭」而非「点正文翻页」。 */
+private fun isOutsideContent(tap: Offset, container: IntSize, content: Size): Boolean {
+    if (container.width <= 0 || container.height <= 0 || content.width <= 0f || content.height <= 0f) return false
+    val insetX = (container.width - content.width) / 2f
+    val insetY = (container.height - content.height) / 2f
+    return tap.x < insetX || tap.x > container.width - insetX ||
+        tap.y < insetY || tap.y > container.height - insetY
+}
+
 /** 单轴最大位移：放大后超出容器的部分对半分。没超出则为 0，图钉死在正中，杜绝漂移。 */
 fun maxPan(contentPx: Float, containerPx: Float, scale: Float): Float =
     ((contentPx * scale - containerPx) / 2f).coerceAtLeast(0f)
@@ -333,7 +342,8 @@ fun ZoomableImage(
     bitmap: ImageBitmap,
     contentDescription: String?,
     onTap: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBackgroundTap: (() -> Unit)? = null
 ) {
     var container by remember { mutableStateOf(IntSize.Zero) }
     var scale by remember { mutableFloatStateOf(MIN_SCALE) }
@@ -369,7 +379,13 @@ fun ZoomableImage(
             // 停在旧尺寸上——旋转屏幕后就用错的中心点缩放、按错的边界夹位移。
             .pointerInput(imageSize, container) {
                 detectTapGestures(
-                    onTap = { if (scale <= MIN_SCALE + SCALE_EPS) onTap() },
+                    onTap = { tap ->
+                        if (scale > MIN_SCALE + SCALE_EPS) return@detectTapGestures
+                        // 未放大时的单击语义交给宿主定：图片查看器点哪都关，PDF 查看器只点内容区外的
+                        // 空白（Fit 后两侧黑边）才关，点正文翻页。
+                        val hit = onBackgroundTap != null && isOutsideContent(tap, container, content)
+                        if (hit) onBackgroundTap?.invoke() else onTap()
+                    },
                     onDoubleTap = { tap ->
                         val from = scale
                         val to = if (from > MIN_SCALE + SCALE_EPS) {

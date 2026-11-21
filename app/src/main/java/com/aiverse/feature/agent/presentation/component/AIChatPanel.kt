@@ -111,10 +111,16 @@ import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.semanticColors
 import com.aiverse.core.tts.LocalTtsController
 import com.aiverse.core.ui.ImageViewerHost
+import com.aiverse.core.ui.appImageLoader
 import com.aiverse.core.ui.LocalImageViewer
 import com.aiverse.core.ui.LocalMediaViewer
 import com.aiverse.core.ui.MediaPlayerHost
+import com.aiverse.core.ui.PdfViewerHost
+import com.aiverse.core.ui.isPdfFile
+import com.aiverse.core.ui.pdfViewerRequest
+import com.aiverse.core.ui.pdfFileResolver
 import com.aiverse.core.ui.rememberMediaViewerState
+import com.aiverse.core.ui.rememberPdfViewerState
 import com.aiverse.core.ui.AdaptiveModalBottomSheet
 import com.aiverse.core.ui.AppTextField
 import com.aiverse.core.ui.appTextFieldColors
@@ -1749,22 +1755,35 @@ fun AIChatPanel(
     }
     val imageViewerState = rememberImageViewerState()
     val viewerDecodeSpec = rememberViewerDecodeSpec()
-    val chatImageLoad = remember(viewModel.fileAccess, viewerDecodeSpec) {
-        chatImageLoader(viewModel.fileAccess, viewerDecodeSpec.maxEdge, viewerDecodeSpec.maxPixels)
+    val viewerImageContext = LocalContext.current
+    val viewerImageLoader = viewerImageContext.appImageLoader
+    val chatImageLoad = remember(viewModel.fileAccess, viewerDecodeSpec, viewerImageLoader) {
+        chatImageLoader(
+            viewerImageContext,
+            viewerImageLoader,
+            viewModel.fileAccess,
+            viewerDecodeSpec.maxEdge,
+            viewerDecodeSpec.maxPixels
+        )
     }
     // 应用内音视频播放器（issue #91）：取源统一走 FileAccessProvider.copyToLocal，远程 SSH 会先下载。
     val mediaViewerState = rememberMediaViewerState()
     val mediaFileResolve = remember(viewModel.fileAccess) { mediaFileResolver(viewModel.fileAccess) }
+    // 应用内 PDF 查看器（issue #176）：取源同走 FileAccessProvider.copyToLocal，远程 SSH 先整份下载。
+    val pdfViewerState = rememberPdfViewerState()
+    val pdfFileResolve = remember(viewModel.fileAccess) { pdfFileResolver(viewModel.fileAccess) }
 
     // 文件卡片点击：可预览文档（md / html / txt 等）弹「预览 / 用其他应用打开」；
     // 其余非图片直接系统打开。重取/拷贝需要在 IO 线程跑（远程模式要下载），故由这里注入协程。
     var attachmentSheet by remember { mutableStateOf<AgentAttachment?>(null) }
     val attachmentOpener = remember(viewModel.fileAccess, context) {
         AttachmentOpener { attachment ->
-            if (isChatPreviewableDocument(attachment.fileName, attachment.mimeType)) {
-                attachmentSheet = attachment
-            } else {
-                scope.launch { openSentAttachment(context, attachment, viewModel.fileAccess) }
+            when {
+                isChatPreviewableDocument(attachment.fileName, attachment.mimeType) -> attachmentSheet = attachment
+                isPdfFile(attachment.fileName, attachment.mimeType) -> pdfViewerState.show(
+                    pdfViewerRequest(attachment.fileName, attachment.containerPath, attachment.localPath)
+                )
+                else -> scope.launch { openSentAttachment(context, attachment, viewModel.fileAccess) }
             }
         }
     }
@@ -2318,7 +2337,7 @@ fun AIChatPanel(
                 enterToSend = settingsViewModel?.enterToSend?.collectAsStateWithLifecycle()?.value ?: false,
                 backgroundEnabled = chatBackgroundEnabled,
                 onStop = { viewModel.stopAgent() },
-                isBusy = isBusy,
+                isBusy = turnInProgress,
                 workspaceViewModel = workspaceViewModel,
                 hasRunningSessions = { viewModel.hasRunningSessionsInCurrentWorkspace() },
                 onSwitchWorkspaceConfirmed = { viewModel.stopAllAndCloseTerminal() },
@@ -2546,6 +2565,7 @@ fun AIChatPanel(
         }
         ImageViewerHost(state = imageViewerState, load = chatImageLoad)
         MediaPlayerHost(state = mediaViewerState, resolve = mediaFileResolve)
+        PdfViewerHost(state = pdfViewerState, resolve = pdfFileResolve)
     }
 }
 

@@ -133,19 +133,18 @@ fun CodeEditorScreen(
     var pendingLeave by remember { mutableStateOf<PendingLeave?>(null) }
     var showUnsavedDialog by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-    var previewMode by remember { mutableStateOf(startInPreview) }
-    var cursorLine by remember { mutableStateOf(1) }
-    var cursorColumn by remember { mutableStateOf(1) }
+    // 仅 md / html 可预览；txt 等纯文本按源码展示，避免被 Markdown 渲染改写内容。
     val isMarkdown = remember(path) {
         path.substringAfterLast('.', "").lowercase() in setOf("md", "markdown")
     }
     val isHtmlDoc = remember(path) {
         path.substringAfterLast('.', "").lowercase() in setOf("html", "htm")
     }
-    val isTxtDoc = remember(path) {
-        path.substringAfterLast('.', "").lowercase() == "txt"
-    }
-    val isPreviewableDoc = isMarkdown || isHtmlDoc || isTxtDoc
+    val isPreviewableDoc = isMarkdown || isHtmlDoc
+    // 非 md / html 文件即使入口带 preview=true 也进源码，防止被强开成 Markdown 预览。
+    var previewMode by remember { mutableStateOf(startInPreview && isPreviewableDoc) }
+    var cursorLine by remember { mutableStateOf(1) }
+    var cursorColumn by remember { mutableStateOf(1) }
     var editorBackground by remember { mutableStateOf<Color?>(null) }
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
@@ -158,7 +157,7 @@ fun CodeEditorScreen(
         pendingLeave = null
         cursorLine = 1
         cursorColumn = 1
-        previewMode = startInPreview
+        previewMode = startInPreview && isPreviewableDoc
     }
 
     // 大屏右栏宿主（点文件树 / 点聊天里的路径链接）要换文件时，先过这里：无脏数据直接放行，

@@ -1519,7 +1519,12 @@ class AIAgentViewModel @Inject constructor(
     /** 正在等待用户授权的会话 id 集合，供侧边栏会话行点亮橙色指示灯。 */
     val awaitingPermissionSessionIds: StateFlow<Set<String>> = toolPermissionManager.awaitingSessionIds
 
-    val pendingUserQuestion = askUserQuestionManager.pendingQuestion
+    val pendingUserQuestion: StateFlow<PendingUserQuestion?> = combine(
+        _currentSessionId,
+        askUserQuestionManager.pendingQuestion
+    ) { id, question ->
+        question?.takeIf { it.sessionId == id }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val queuedRequests: StateFlow<List<QueuedRequest>> = combine(_currentSessionId, agentRunManager.queuedRequests) { id, queues ->
         if (id == null) emptyList() else queues[id] ?: emptyList()
@@ -2403,7 +2408,7 @@ class AIAgentViewModel @Inject constructor(
 
     /** 当前展示的提问面板所属会话标题（多会话并行时供面板标注归属）。会话不存在时回退空串。 */
     val pendingUserQuestionSessionTitle: StateFlow<String> = combine(
-        askUserQuestionManager.pendingQuestion,
+        pendingUserQuestion,
         sessions,
         subSessionsByParent
     ) { req, roots, subs ->
@@ -2413,8 +2418,6 @@ class AIAgentViewModel @Inject constructor(
             ?: subs.values.asSequence().flatten().firstOrNull { it.id == sid }?.title
         title.orEmpty()
     }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-
-    /** 当前会话队首的待决问题；按 currentSessionId 过滤，只暴露属于本会话的问题，避免跨会话串扰。 */
 
     /** 正在等待用户回答问题的会话 id 集合，供侧边栏会话行点亮指示灯。 */
     val awaitingQuestionSessionIds: StateFlow<Set<String>> = askUserQuestionManager.awaitingSessionIds
@@ -2642,6 +2645,14 @@ class AIAgentViewModel @Inject constructor(
         if (pluginSession != null) {
             sendPluginMessage(pluginSession, request.ifBlank { modelRequest })
             return
+        }
+        if (request.trimStart().startsWith("/")) {
+            val sid = targetSessionId ?: _currentSessionId.value
+            val resolved = slashCommandRegistry.resolve(request)
+            if (resolved != null && sid != null) {
+                runResolvedCommand(resolved, request, sid)
+                return
+            }
         }
         agentRunManager.enqueueAgentRequest(
             request = request,

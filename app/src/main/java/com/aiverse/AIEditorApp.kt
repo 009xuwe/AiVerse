@@ -283,6 +283,10 @@ class AIEditorApp : Application(), Configuration.Provider {
             return
         }
         super.onCreate()
+        // 全局 Coil 图片加载器：注册 GIF / 动图 / SVG 解码器（见 [buildAppImageLoader]）。
+        // Coil 2.7.0 已无 CoilImageLoaderFactory 接口，改为显式 setImageLoader；此后所有未显式传
+        // loader 的 `AsyncImage` / `rememberAsyncImagePainter`（头像、正文内嵌图等）都用这份带解码器的单例。
+        coil.Coil.setImageLoader(com.aiverse.core.ui.buildAppImageLoader(this))
         logDeviceInfo()
         // 启动次数自增：每次应用进入前台计一次（冷启动与从后台/最近任务恢复都算）。
         // 不放在 Application.onCreate：本应用后台常驻（TerminalKeepaliveService / PRoot 容器），

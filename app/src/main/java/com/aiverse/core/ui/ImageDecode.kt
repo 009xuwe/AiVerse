@@ -12,10 +12,11 @@ import androidx.compose.ui.unit.dp
 import com.aiverse.core.util.FileLogger
 
 /**
- * 全局统一的位图采样解码。
+ * 全局统一的位图采样解码（BitmapFactory 路径）。
  *
- * 项目没有引入 Coil/Glide（F-Droid 可复现构建下刻意保持依赖精简），所有图片都是手写
- * [BitmapFactory] 解码。此处收敛采样与 OOM 兜底逻辑，避免各处各写一份、各带一份 bug。
+ * 图片展示已逐步迁到 Coil（见 core/ui/CoilImageSupport），但正文本地图片与全屏查看器的常规
+ * 格式仍走这里，用 [BitmapFactory] 的 inSampleSize 采样 + 总像素兜底 + OOM 降档重试挡住长截图 /
+ * 超大图。此处收敛采样与 OOM 兜底逻辑，避免各处各写一份、各带一份 bug。
  */
 private const val TAG = "ImageDecode"
 

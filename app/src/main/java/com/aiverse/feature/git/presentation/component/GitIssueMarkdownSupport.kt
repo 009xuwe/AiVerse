@@ -1,25 +1,15 @@
 package com.aiverse.feature.git.presentation.component
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import com.aiverse.R
 import com.aiverse.core.ui.ImageSource
 import com.aiverse.core.ui.ImageViewerRequest
-import com.aiverse.core.ui.LocalImageViewer
 import com.aiverse.feature.agent.presentation.component.LocalMarkdownImageTransformer
 import com.aiverse.feature.agent.presentation.component.MarkdownContent
+import com.aiverse.feature.agent.presentation.component.remoteMarkdownImage
 import com.mikepenz.markdown.model.ImageData
 import com.mikepenz.markdown.model.ImageTransformer
 
@@ -81,36 +71,22 @@ private val ALT_ATTR_REGEX = Regex("""alt\s*=\s*["']([^"']*)["']""", RegexOption
  * Git issue 正文的 Markdown 图片 transformer。
  *
  * 只渲染 http/https 远程图片（GitHub user-attachments 及其重定向目标无需鉴权，直接 Coil 加载）；
- * 其它（本地路径、自定义 scheme）一律返回 null 不渲染，与聊天区「不渲染本地路径」的语义保持
- * 一致 —— issue 正文一般只有远程图片。加载中 Coil 显示占位，点按拉起全屏查看器看原图。
+ * 其它（本地路径、自定义 scheme）一律返回 null 不渲染 —— issue 正文一般只有远程图片。
+ *
+ * 远程渲染复用聊天区 [remoteMarkdownImage]：同一套限高 / 圆角 modifier、同一个统一 Coil 加载器
+ * （GIF 动图逐帧播放、SVG 栅格化），点按拉起全屏查看器看原图。
  */
 private object GitIssueImageTransformer : ImageTransformer {
     @Composable
     override fun transform(link: String): ImageData? {
         val url = link.trim()
         if (!url.startsWith("http://") && !url.startsWith("https://")) return null
-        val viewer = LocalImageViewer.current
-        val clickLabel = stringResource(R.string.common_image_preview)
-        val painter = rememberAsyncImagePainter(model = url)
-        // remember 住 modifier：ImageData 是 data class，每帧换新 Modifier 会让 equals 恒不成立，
-        // 白白触发下游重组。
-        val modifier = remember(url, viewer, clickLabel) {
-            Modifier
-                .fillMaxWidth()
-                .heightIn(max = MAX_HEIGHT_DP)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClickLabel = clickLabel) {
-                    viewer.show(
-                        ImageViewerRequest(
-                            sources = listOf(ImageSource.Url(url)),
-                            title = url.trimEnd('/').substringAfterLast('/')
-                        )
-                    )
-                }
-        }
-        return ImageData(painter = painter, modifier = modifier, contentScale = ContentScale.Fit)
+        return remoteMarkdownImage(
+            url,
+            ImageViewerRequest(
+                sources = listOf(ImageSource.Url(url)),
+                title = url.trimEnd('/').substringAfterLast('/')
+            )
+        )
     }
-
-    /** 显示最大高度（dp），超长图等比缩放。与聊天区 MarkdownImageTransformer 一致。 */
-    private val MAX_HEIGHT_DP = 320.dp
 }

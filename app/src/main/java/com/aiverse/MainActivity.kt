@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -94,7 +95,12 @@ import com.aiverse.core.ui.MediaPlayerHost
 import com.aiverse.core.ui.MediaSource
 import com.aiverse.core.ui.MediaViewerRequest
 import com.aiverse.core.ui.PAGE_MOTION_MS
+import com.aiverse.core.ui.PdfSource
+import com.aiverse.core.ui.PdfViewerHost
+import com.aiverse.core.ui.PdfViewerRequest
+import com.aiverse.core.ui.openFileExternal
 import com.aiverse.core.ui.VerticalSplitHandle
+import com.aiverse.core.ui.appImageLoader
 import com.aiverse.core.ui.drawerWidth
 import com.aiverse.core.ui.isExpandedWidth
 import com.aiverse.core.ui.mediaKindOf
@@ -102,8 +108,12 @@ import com.aiverse.core.ui.pageEnter
 import com.aiverse.core.ui.pageExit
 import com.aiverse.core.ui.rememberImageViewerState
 import com.aiverse.core.ui.rememberMediaViewerState
+import com.aiverse.core.ui.rememberPdfViewerState
 import com.aiverse.core.ui.rememberViewerDecodeSpec
+import com.aiverse.core.ui.isPdfFile
+import com.aiverse.core.ui.pdfFileResolver
 import com.aiverse.core.util.ApkInstaller
+import com.aiverse.core.util.extToMimeType
 import com.aiverse.feature.agent.presentation.AIAgentViewModel
 import com.aiverse.feature.agent.presentation.AgentAttachment
 import com.aiverse.feature.agent.presentation.component.AIChatPanel
@@ -711,12 +721,23 @@ fun AppNavigation(
     // 文件树里点文件：图片进内置全屏查看器、音视频进应用内播放器、APK 走系统安装器，其余仍进编辑器。
     val drawerImageViewerState = rememberImageViewerState()
     val drawerDecodeSpec = rememberViewerDecodeSpec()
-    val drawerImageLoad = remember(agentViewModel.fileAccess, drawerDecodeSpec) {
-        chatImageLoader(agentViewModel.fileAccess, drawerDecodeSpec.maxEdge, drawerDecodeSpec.maxPixels)
+    val drawerImageContext = LocalContext.current
+    val drawerImageLoader = drawerImageContext.appImageLoader
+    val drawerImageLoad = remember(agentViewModel.fileAccess, drawerDecodeSpec, drawerImageLoader) {
+        chatImageLoader(
+            drawerImageContext,
+            drawerImageLoader,
+            agentViewModel.fileAccess,
+            drawerDecodeSpec.maxEdge,
+            drawerDecodeSpec.maxPixels
+        )
     }
     // 应用内音视频播放器（issue #91）：取源统一走 copyToLocal，远程 SSH 先整份下载。
     val drawerMediaViewerState = rememberMediaViewerState()
     val drawerMediaResolve = remember(agentViewModel.fileAccess) { mediaFileResolver(agentViewModel.fileAccess) }
+    // 应用内 PDF 查看器（issue #176）：取源同走 copyToLocal，远程 SSH 先整份下载。
+    val drawerPdfViewerState = rememberPdfViewerState()
+    val drawerPdfResolve = remember(agentViewModel.fileAccess) { pdfFileResolver(agentViewModel.fileAccess) }
     // 按文件类型打开路径：图片进内置查看器、音视频进播放器、APK 走系统安装器，其余进编辑器。
     // 图片/音视频/APK 分支忽略 line，仅编辑器分支用它定位到目标行；fromDrawer 只影响窄窗下
     // 编辑器返回时是否重新展开侧栏（侧边栏入口 true，聊天区链接 false）。
@@ -730,6 +751,9 @@ fun AppNavigation(
             )
             mediaKind != null -> drawerMediaViewerState.show(
                 MediaViewerRequest(sources = listOf(MediaSource.ContainerPath(path)), title = name, kind = mediaKind)
+            )
+            isPdfFile(name) -> drawerPdfViewerState.show(
+                PdfViewerRequest(sources = listOf(PdfSource.ContainerPath(path)), title = name)
             )
             ext in INSTALLABLE_APK_EXTS -> scope.launch {
                 openSentAttachment(
@@ -801,6 +825,19 @@ fun AppNavigation(
             pasteConflict = pasteConflict,
             onToggleExpand = { agentViewModel.toggleExpand(it) },
             onOpenFile = openTreeEntry,
+            onOpenWith = { path ->
+                // Office 文档应用内打不开：交给系统应用（远程先整份下载到宿主再授权分享）。
+                scope.launch {
+                    val file = withContext(Dispatchers.IO) {
+                        runCatching { agentViewModel.fileAccess.copyToLocal(path) }.getOrNull()
+                    }
+                    if (file == null || !file.isFile) {
+                        toastFileOpFailed(context, R.string.chat_open_file_missing)
+                    } else {
+                        openFileExternal(context, file, extToMimeType(path) ?: "")
+                    }
+                }
+            },
             onRefreshBrowse = { agentViewModel.refreshBrowse() },
             onCreateFile = { parent, name ->
                 agentViewModel.createBrowseFile(parent, name) { ok ->
@@ -1263,6 +1300,7 @@ fun AppNavigation(
     // 文件树里点开的图片/音视频走这个查看器/播放器；聊天面板自带一套，两层互不影响。
     ImageViewerHost(state = drawerImageViewerState, load = drawerImageLoad)
     MediaPlayerHost(state = drawerMediaViewerState, resolve = drawerMediaResolve)
+    PdfViewerHost(state = drawerPdfViewerState, resolve = drawerPdfResolve)
     if (expanded) {
         // 大屏不套 ModalNavigationDrawer：侧栏常驻在左，抽屉那套 scrim / 手势 / 锚点在这里完全用不上。
         // 侧栏只在聊天页展开：设置页自己就是「菜单 + 详情」两栏，外面再套一层会话侧栏就成了三栏。
@@ -1550,7 +1588,7 @@ private val OPAQUE_URL_SCHEME = Regex(
 private val TRAILING_LINE = Regex("^(.*):(\\d+)$")
 
 /** 文件树里点击即在内置查看器预览的图片格式（与 sendFile 的图片判定一致）。 */
-private val PREVIEWABLE_IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
+private val PREVIEWABLE_IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg")
 
 /** 文件树里点击即调系统安装器的安装包格式。 */
 private val INSTALLABLE_APK_EXTS = setOf("apk", "apks", "xapk")

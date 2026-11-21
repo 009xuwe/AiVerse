@@ -277,8 +277,13 @@ internal fun ChatInputBar(
             inputFieldValue = TextFieldValue(value, TextRange(value.length))
         }
     }
+    // 命令名后出现空格（进入参数/正文）或 @（文件引用优先）即退出选命令阶段
+    val slashArgs = value.substringAfter('/', "")
     val showSlashMenu = slashCommands.isNotEmpty() &&
-        value.startsWith("/") && !value.contains("\n")
+        value.startsWith("/") &&
+        !value.contains("\n") &&
+        !slashArgs.contains(' ') &&
+        !slashArgs.contains('@')
     val filteredCommands = if (showSlashMenu) {
         if (value == "/") slashCommands
         else slashCommands.filter { "/${it.name}".startsWith(value) }
