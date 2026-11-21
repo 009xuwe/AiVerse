@@ -1,9 +1,5 @@
 package com.aiverse.feature.settings.presentation.component
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,14 +31,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,16 +52,16 @@ import com.aiverse.feature.settings.data.repository.DEFAULT_DOWNLOAD_MIRROR
 import com.aiverse.feature.settings.data.repository.UpdateChannel
 import com.aiverse.feature.settings.data.repository.isValidDownloadMirror
 import compose.icons.FeatherIcons
-import compose.icons.feathericons.GitBranch
 import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.Book
 import compose.icons.feathericons.Check
+import compose.icons.feathericons.ChevronDown
+import compose.icons.feathericons.ChevronUp
 import compose.icons.feathericons.Download
 import compose.icons.feathericons.Github
 import compose.icons.feathericons.Globe
 import compose.icons.feathericons.MessageCircle
 import compose.icons.feathericons.RefreshCw
-import compose.icons.feathericons.Star
 import compose.icons.feathericons.Tag
 
 /**
@@ -90,6 +84,8 @@ internal fun AboutSection(
     val context = LocalContext.current
     var showChannelSheet by remember { mutableStateOf(false) }
     var showMirrorDialog by remember { mutableStateOf(false) }
+    // 更新设置默认收起：关于页首屏只保留版本与入口，自动检查/通道/镜像按需展开。
+    var showUpdateSettings by remember { mutableStateOf(false) }
 
     val termsUrl = stringResource(R.string.agreement_terms_url)
     val privacyUrl = stringResource(R.string.agreement_privacy_url)
@@ -109,10 +105,6 @@ internal fun AboutSection(
         }.getOrDefault(AppVersion("unknown", 0L))
     }
 
-    // 应用图标：用 PackageManager.loadIcon 加载自适应图标，避免 mipmap-anydpi 的 XML
-    // 在 Compose painterResource 中不被支持的问题（Only VectorDrawables and rasterized types）。
-    val appIcon = remember { loadAppIconBitmap(context) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -121,7 +113,7 @@ internal fun AboutSection(
             .padding(bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        AboutHeaderCard(appName = stringResource(R.string.app_name), appIcon = appIcon)
+        AboutHeaderCard(appName = stringResource(R.string.app_name))
 
         SettingsGroup {
             // 版本：正式包点击手动检查更新；测试包仅展示版本号（不参与检查更新）
@@ -137,78 +129,91 @@ internal fun AboutSection(
                     )
                 }
             )
+            SettingsDivider()
             // 测试包（debug/beta）不参与检查更新：包名与正式版不同，应用内升级会导向正式包。
-            // 隐藏自动检查开关与更新通道，避免无效设置。
+            // 更新设置默认收起，避免自动检查、通道、镜像三项把关于页首屏撑满。
             if (!isTestPackage) {
-                SettingsDivider()
-                // 自动检查更新：开关
                 SettingsRow(
                     icon = FeatherIcons.RefreshCw,
-                    title = stringResource(R.string.about_auto_check_update),
-                    subtitle = stringResource(R.string.about_auto_check_update_desc),
+                    title = stringResource(R.string.about_update_settings),
+                    subtitle = stringResource(R.string.about_update_settings_desc),
+                    onClick = { showUpdateSettings = !showUpdateSettings },
                     trailing = {
-                        AppSwitch(
-                            checked = updateCheckEnabled,
-                            onCheckedChange = onToggleUpdateCheck
+                        Icon(
+                            imageVector = if (showUpdateSettings) FeatherIcons.ChevronUp else FeatherIcons.ChevronDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.semanticColors.subtleText,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 )
-                SettingsDivider()
-                // 更新通道
-                SettingsRow(
-                    icon = FeatherIcons.Globe,
-                    title = stringResource(R.string.about_update_channel),
-                    onClick = { showChannelSheet = true },
-                    trailing = {
-                        Text(
-                            text = stringResource(
-                                if (updateCheckChannel == UpdateChannel.STABLE) {
-                                    R.string.update_channel_stable
-                                } else {
-                                    R.string.update_channel_latest
-                                }
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.semanticColors.subtleText
-                        )
-                    }
-                )
-                SettingsDivider()
-            }
-            // 下载镜像源：更新包下载走它加速，留空表示直连 GitHub
-            SettingsRow(
-                icon = FeatherIcons.Download,
-                title = stringResource(R.string.about_update_mirror),
-                onClick = { showMirrorDialog = true },
-                trailing = {
-                    Text(
-                        text = updateCheckMirror.ifBlank {
-                            stringResource(R.string.about_update_mirror_preset_direct)
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.semanticColors.subtleText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 170.dp)
+                if (showUpdateSettings) {
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = FeatherIcons.RefreshCw,
+                        title = stringResource(R.string.about_auto_check_update),
+                        subtitle = stringResource(R.string.about_auto_check_update_desc),
+                        trailing = {
+                            AppSwitch(
+                                checked = updateCheckEnabled,
+                                onCheckedChange = onToggleUpdateCheck
+                            )
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = FeatherIcons.Globe,
+                        title = stringResource(R.string.about_update_channel),
+                        onClick = { showChannelSheet = true },
+                        trailing = {
+                            Text(
+                                text = stringResource(
+                                    if (updateCheckChannel == UpdateChannel.STABLE) {
+                                        R.string.update_channel_stable
+                                    } else {
+                                        R.string.update_channel_latest
+                                    }
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.semanticColors.subtleText
+                            )
+                        }
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = FeatherIcons.Download,
+                        title = stringResource(R.string.about_update_mirror),
+                        onClick = { showMirrorDialog = true },
+                        trailing = {
+                            Text(
+                                text = updateCheckMirror.ifBlank {
+                                    stringResource(R.string.about_update_mirror_preset_direct)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.semanticColors.subtleText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 170.dp)
+                            )
+                        }
                     )
                 }
-            )
-            SettingsDivider()
-            // GitHub 仓库
+                SettingsDivider()
+            }
             SettingsRow(
                 icon = FeatherIcons.Github,
                 title = stringResource(R.string.about_github_repo),
                 onClick = { openUrl(context, GITHUB_REPO_URL) }
             )
             SettingsDivider()
-            // 上游仓库（aicode 官方）
             SettingsRow(
-                icon = FeatherIcons.GitBranch,
-                title = stringResource(R.string.about_upstream_repo),
-                onClick = { openUrl(context, UPSTREAM_REPO_URL) }
+                icon = FeatherIcons.MessageCircle,
+                title = stringResource(R.string.about_feedback),
+                onClick = { openUrl(context, FEEDBACK_URL) }
             )
-            SettingsDivider()
-            // 许可证
+        }
+
+        SettingsGroup {
             SettingsRow(
                 icon = FeatherIcons.Book,
                 title = stringResource(R.string.about_license),
@@ -225,13 +230,6 @@ internal fun AboutSection(
                 icon = FeatherIcons.AlertCircle,
                 title = stringResource(R.string.agreement_privacy),
                 onClick = { openUrl(context, privacyUrl) }
-            )
-            SettingsDivider()
-            // 意见反馈：跳 GitHub 新建 issue，方便用户报 bug / 提建议
-            SettingsRow(
-                icon = FeatherIcons.MessageCircle,
-                title = stringResource(R.string.about_feedback),
-                onClick = { openUrl(context, FEEDBACK_URL) }
             )
         }
     }
@@ -261,7 +259,7 @@ internal fun AboutSection(
 
 /** 顶部信息卡：左 app 图标，右上 app 名，右下一句简介。 */
 @Composable
-private fun AboutHeaderCard(appName: String, appIcon: androidx.compose.ui.graphics.ImageBitmap?) {
+private fun AboutHeaderCard(appName: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -272,16 +270,14 @@ private fun AboutHeaderCard(appName: String, appIcon: androidx.compose.ui.graphi
             modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (appIcon != null) {
-                Image(
-                    bitmap = appIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp)
-                )
-            } else {
-                // 极端情况下图标加载失败的占位，保持布局占位
-                Spacer(Modifier.size(48.dp))
-            }
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            Image(
+                painter = painterResource(
+                    if (isDark) R.drawable.app_launcher_glyph_white else R.drawable.app_launcher_glyph
+                ),
+                contentDescription = null,
+                modifier = Modifier.size(56.dp)
+            )
             Spacer(Modifier.width(Spacing.lg))
             Column(
                 modifier = Modifier.weight(1f),
@@ -555,30 +551,6 @@ internal fun splitVersion(v: String): Pair<String, String> {
 
 private data class AppVersion(val name: String, val code: Long)
 
-/**
- * 通过 PackageManager.loadIcon 加载应用图标并转为 ImageBitmap，兼容自适应图标
- * (adaptive icon XML)。解决 painterResource(R.mipmap.ic_launcher) 在 v26+ 设备上
- * 因解析到 mipmap-anydpi-v26/ic_launcher.xml 而抛 IllegalArgumentException 的问题。
- * 失败返回 null（调用方预留占位）。
- */
-private fun loadAppIconBitmap(context: Context): ImageBitmap? {
-    return runCatching {
-        val pm = context.packageManager
-        val drawable: Drawable = pm.getApplicationInfo(context.packageName, 0).loadIcon(pm)
-        val sizePx = android.util.TypedValue.applyDimension(
-            android.util.TypedValue.COMPLEX_UNIT_DIP,
-            ICON_PX_DP.toFloat(),
-            context.resources.displayMetrics
-        ).toInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
-        drawable.setBounds(0, 0, sizePx, sizePx)
-        Canvas(bitmap).also { drawable.draw(it) }
-        bitmap.asImageBitmap()
-    }.getOrNull()
-}
-
 private const val GITHUB_REPO_URL = "https://github.com/yhdmgf/AiVerse"
-private const val UPSTREAM_REPO_URL = "https://github.com/jieapi/AiCode"
 private const val LICENSE_URL = "https://github.com/yhdmgf/AiVerse/blob/main/LICENSE"
 private const val FEEDBACK_URL = "https://github.com/yhdmgf/AiVerse/issues/new"
-private const val ICON_PX_DP = 48

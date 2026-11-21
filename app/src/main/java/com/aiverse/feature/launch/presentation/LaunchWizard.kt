@@ -28,6 +28,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,6 +53,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -98,6 +101,8 @@ import com.aiverse.feature.settings.data.repository.AppThemeMode
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Bell
 import compose.icons.feathericons.Check
+import compose.icons.feathericons.ChevronDown
+import compose.icons.feathericons.ChevronUp
 import compose.icons.feathericons.Zap
 import compose.icons.feathericons.Folder
 import compose.icons.feathericons.Github
@@ -136,7 +141,7 @@ fun LaunchWizard(
     onImportFromRelease: () -> Unit,
     onAgree: () -> Unit,
     onExit: () -> Unit,
-    onFinish: () -> Unit,
+    onFinish: (startOnboarding: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 页面列表只按包名决定长度：测试版 5 页、正式版 4 页，步数点一次算清、全程一致。
@@ -150,6 +155,8 @@ fun LaunchWizard(
         }
     }
     var index by rememberSaveable { mutableIntStateOf(0) }
+    // 最后一页点「开始使用」后先问一次要不要进入聚光灯引导，避免向导结束后立刻又叠一套。
+    var showOnboardingPrompt by remember { mutableStateOf(false) }
     val current = pages[index.coerceIn(0, pages.lastIndex)]
     val isFirst = index == 0
     val isLast = index == pages.lastIndex
@@ -159,7 +166,7 @@ fun LaunchWizard(
 
     fun goNext() {
         if (isFirst) onAgree()
-        if (isLast) onFinish() else index += 1
+        if (isLast) showOnboardingPrompt = true else index += 1
     }
 
     BackHandler {
@@ -220,7 +227,7 @@ fun LaunchWizard(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .pointerInput(pages) {
+                    .pointerInput(pages, index) {
                         // 左右滑动翻页：横向拖过阈值等价于点「下一步 / 上一页」；
                         // 只接管横向手势，页面内的纵向滚动不受影响。
                         detectHorizontalDragGestures(
@@ -304,6 +311,30 @@ fun LaunchWizard(
                 }
             }
         }
+    }
+
+    if (showOnboardingPrompt) {
+        AlertDialog(
+            onDismissRequest = { showOnboardingPrompt = false },
+            title = { Text(stringResource(R.string.launch_onboarding_prompt_title)) },
+            text = { Text(stringResource(R.string.launch_onboarding_prompt_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showOnboardingPrompt = false
+                        onFinish(true)
+                    }
+                ) { Text(stringResource(R.string.launch_onboarding_prompt_start)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showOnboardingPrompt = false
+                        onFinish(false)
+                    }
+                ) { Text(stringResource(R.string.launch_onboarding_prompt_skip)) }
+            }
+        )
     }
 }
 
@@ -455,6 +486,8 @@ private fun PermissionsPage() {
     var installGrantedState by remember { mutableStateOf(installPackagesGranted(context)) }
     var overlayGrantedState by remember { mutableStateOf(overlayGranted(context)) }
     var autoStartVisited by remember { mutableStateOf(false) }
+    // 首启只展示通知与后台两项；存储/安装/悬浮窗/自启动收进「更多权限」，避免一上来压满屏。
+    var showMorePermissions by rememberSaveable { mutableStateOf(false) }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -498,11 +531,16 @@ private fun PermissionsPage() {
             title = stringResource(R.string.launch_page_permission_title),
             subtitle = stringResource(R.string.launch_page_permission_subtitle)
         )
+        PermissionGroup(
+            title = stringResource(R.string.launch_permission_group_basic),
+            subtitle = stringResource(R.string.launch_permission_group_basic_desc)
+        ) {
         PermissionRow(
             icon = { Icon(FeatherIcons.Bell, null, tint = MaterialTheme.colorScheme.primary) },
             title = stringResource(R.string.launch_permission_notification_title),
             desc = stringResource(R.string.launch_permission_notification_desc),
             granted = notificationGranted,
+            container = false,
             onGrant = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -517,6 +555,7 @@ private fun PermissionsPage() {
             title = stringResource(R.string.settings_permission_battery),
             desc = stringResource(R.string.settings_permission_battery_desc),
             granted = batteryExemptState,
+            container = false,
             onGrant = {
                 runCatching {
                     context.startActivity(
@@ -528,12 +567,21 @@ private fun PermissionsPage() {
                 }
             }
         )
+        }
         Spacer(modifier = Modifier.height(10.dp))
+        PermissionGroup(
+            title = stringResource(R.string.launch_permission_group_more),
+            subtitle = stringResource(R.string.launch_permission_group_more_desc),
+            expanded = showMorePermissions,
+            onToggle = { showMorePermissions = !showMorePermissions }
+        ) {
+        if (showMorePermissions) {
         PermissionRow(
             icon = { Icon(FeatherIcons.Folder, null, tint = MaterialTheme.colorScheme.primary) },
             title = stringResource(R.string.settings_permission_storage),
             desc = stringResource(R.string.settings_permission_storage_desc),
             granted = storageGrantedState,
+            container = false,
             onGrant = {
                 storageLauncher.launch(
                     arrayOf(
@@ -549,6 +597,7 @@ private fun PermissionsPage() {
             title = stringResource(R.string.launch_permission_install_title),
             desc = stringResource(R.string.launch_permission_install_desc),
             granted = installGrantedState,
+            container = false,
             onGrant = {
                 runCatching {
                     context.startActivity(
@@ -566,6 +615,7 @@ private fun PermissionsPage() {
             title = stringResource(R.string.launch_permission_overlay_title),
             desc = stringResource(R.string.launch_permission_overlay_desc),
             granted = overlayGrantedState,
+            container = false,
             onGrant = {
                 runCatching {
                     context.startActivity(
@@ -583,7 +633,9 @@ private fun PermissionsPage() {
             title = stringResource(R.string.launch_permission_autostart_title),
             desc = stringResource(R.string.launch_permission_autostart_desc),
             granted = autoStartVisited,
+            container = false,
             grantLabel = stringResource(R.string.launch_permission_autostart_action),
+            grantedLabel = stringResource(R.string.launch_permission_autostart_visited),
             onGrant = {
                 autoStartVisited = true
                 // 自启动各家系统位置不同，入口统一落到「应用详情页」，用户能在里面找到自启动/后台限制。
@@ -597,6 +649,8 @@ private fun PermissionsPage() {
                 }
             }
         )
+        }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.launch_permission_footnote),
@@ -608,71 +662,159 @@ private fun PermissionsPage() {
 }
 
 @Composable
+private fun PermissionGroup(
+    title: String,
+    subtitle: String? = null,
+    expanded: Boolean? = null,
+    onToggle: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (onToggle != null) Modifier.clickable { onToggle?.invoke() } else Modifier)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (expanded != null) {
+                    Icon(
+                        imageVector = if (expanded) FeatherIcons.ChevronUp else FeatherIcons.ChevronDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            content()
+        }
+    }
+}
+
+@Composable
 private fun PermissionRow(
     icon: @Composable () -> Unit,
     title: String,
     desc: String,
     granted: Boolean,
     grantLabel: String? = null,
+    grantedLabel: String? = null,
+    container: Boolean = true,
     onGrant: () -> Unit
 ) {
-    Surface(
+    if (container) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            PermissionRowBody(
+                icon = icon,
+                title = title,
+                desc = desc,
+                granted = granted,
+                grantLabel = grantLabel,
+                grantedLabel = grantedLabel,
+                onGrant = onGrant
+            )
+        }
+    } else {
+        PermissionRowBody(
+            icon = icon,
+            title = title,
+            desc = desc,
+            granted = granted,
+            grantLabel = grantLabel,
+            grantedLabel = grantedLabel,
+            onGrant = onGrant
+        )
+    }
+}
+
+@Composable
+private fun PermissionRowBody(
+    icon: @Composable () -> Unit,
+    title: String,
+    desc: String,
+    granted: Boolean,
+    grantLabel: String?,
+    grantedLabel: String?,
+    onGrant: () -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(enabled = !granted) { onGrant() },
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            .clickable(enabled = !granted) { onGrant() }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) { icon() }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) { icon() }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (granted) {
+                Icon(
+                    imageVector = FeatherIcons.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp)
                 )
-                Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.width(4.dp))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (granted) {
-                    Icon(
-                        imageVector = FeatherIcons.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (granted) {
+                    grantedLabel ?: stringResource(R.string.settings_permission_granted)
+                } else {
+                    grantLabel ?: stringResource(R.string.launch_permission_go)
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = if (granted) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.primary
                 }
-                Text(
-                    text = if (granted) {
-                        stringResource(R.string.settings_permission_granted)
-                    } else {
-                        grantLabel ?: stringResource(R.string.launch_permission_go)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (granted) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    }
-                )
-            }
+            )
         }
     }
 }

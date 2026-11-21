@@ -13,14 +13,19 @@ import com.aiverse.feature.git.domain.GitCommandFailureException
 import com.aiverse.feature.git.domain.GitOutputTooLargeException
 import com.aiverse.feature.git.domain.GitErrorMessage
 import com.aiverse.feature.git.domain.GitHubIssuesRepository
+import com.aiverse.feature.git.domain.GitHubPullRequestsRepository
 import com.aiverse.feature.git.domain.GitRepository
 import com.aiverse.feature.git.domain.parseGithubRepoUrl
 import com.aiverse.feature.git.domain.model.GitBranch
 import com.aiverse.feature.git.domain.model.GitCommit
 import com.aiverse.feature.git.domain.model.GitFileChange
 import com.aiverse.feature.git.domain.model.GitGraph
+import com.aiverse.feature.git.domain.model.GitHubCheckSummary
 import com.aiverse.feature.git.domain.model.GitHubComment
 import com.aiverse.feature.git.domain.model.GitHubIssue
+import com.aiverse.feature.git.domain.model.GitHubPullRequest
+import com.aiverse.feature.git.domain.model.GitHubPullRequestCommit
+import com.aiverse.feature.git.domain.model.GitHubPullRequestFile
 import com.aiverse.feature.git.domain.model.GitStash
 import com.aiverse.feature.git.domain.model.GitStatus
 import com.aiverse.feature.git.domain.model.GitTab
@@ -37,7 +42,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +69,7 @@ private fun GitGraph.toGitCommits() =
 class GitViewModel @Inject constructor(
     private val repository: GitRepository,
     private val issuesRepository: GitHubIssuesRepository,
+    private val pullRequestsRepository: GitHubPullRequestsRepository,
     @param:ApplicationContext private val context: Context,
     private val themeSettings: ThemeSettingsRepository,
     private val agentWorkflow: AgentWorkflow
@@ -76,6 +85,9 @@ class GitViewModel @Inject constructor(
         const val REF_WORKTREE = "worktree"
         const val REF_INDEX = "index"
         const val REF_EMPTY = "empty"
+        /** 列表页只为前 N 条 PR 拉 CI 状态，避免一次刷新打满 GitHub API 配额。 */
+        const val PR_CHECKS_ON_LIST = 20
+        const val PR_CHECKS_CONCURRENCY = 4
     }
 
     /** 当前工作区是否位于宿主外部存储；该文件系统与 git 写对象不兼容，错误提示需引导迁移。 */
@@ -177,7 +189,51 @@ class GitViewModel @Inject constructor(
         /** 已选中的 issue 编号集合。 */
         val selectedIssueNumbers: Set<Long> = emptySet(),
         /** 是否正在执行批量操作。 */
-        val issueBulkBusy: Boolean = false
+        val issueBulkBusy: Boolean = false,
+        /** GitHub Pull Request 列表。 */
+        val pulls: List<GitHubPullRequest> = emptyList(),
+        /** 是否正在加载 PR 列表。 */
+        val pullsLoading: Boolean = false,
+        /** PR 列表是否已加载（成功或失败都置 true，控制懒加载只触发一次）。 */
+        val pullsLoaded: Boolean = false,
+        /** 当前 PR 过滤：open/closed/all。 */
+        val pullsFilter: String = "open",
+        /** PR 列表排序方式。 */
+        val pullsSort: String = "newest",
+        /** PR 列表加载失败的错误信息。 */
+        val pullsError: String? = null,
+        /** PR 列表的 CI 摘要，key = PR number；只为前若干条拉取。 */
+        val pullChecks: Map<Long, GitHubCheckSummary> = emptyMap(),
+        /** 正在查看详情的 PR 编号；null 表示未打开。 */
+        val pullDetailNumber: Long? = null,
+        /** 正在查看的 PR 详情。 */
+        val pullDetail: GitHubPullRequest? = null,
+        /** 是否正在加载 PR 详情。 */
+        val pullDetailLoading: Boolean = false,
+        /** 详情页的 CI 汇总。 */
+        val pullDetailChecks: GitHubCheckSummary? = null,
+        /** 是否正在加载详情页 CI。 */
+        val pullDetailChecksLoading: Boolean = false,
+        /** 详情页的评论列表。 */
+        val pullComments: List<GitHubComment> = emptyList(),
+        /** 是否正在加载详情页评论。 */
+        val pullCommentsLoading: Boolean = false,
+        /** 详情页是否正在执行写操作（评论/关闭/合并）。 */
+        val pullActionBusy: Boolean = false,
+        /** 详情页的提交记录。 */
+        val pullCommits: List<GitHubPullRequestCommit> = emptyList(),
+        /** 是否正在加载详情页提交记录。 */
+        val pullCommitsLoading: Boolean = false,
+        /** 详情页的文件变更列表。 */
+        val pullFiles: List<GitHubPullRequestFile> = emptyList(),
+        /** 是否正在加载详情页文件列表。 */
+        val pullFilesLoading: Boolean = false,
+        /** 新建 PR 弹层是否可见。 */
+        val createPullVisible: Boolean = false,
+        /** 新建 PR 是否正在提交。 */
+        val createPullBusy: Boolean = false,
+        /** 新建 PR 的失败原因（保留在弹层内展示）。 */
+        val createPullError: String? = null
     )
 
     private val _state = MutableStateFlow(GitUiState())
@@ -300,12 +356,13 @@ class GitViewModel @Inject constructor(
                 val snap = loadSnapshot(includeIdentity = true)
                 val commits = snap.graph.toGitCommits()
                 _state.update {
-                    it.copy(loading = false, notARepo = false, status = snap.status, commits = commits, graph = snap.graph, hasRemote = snap.hasRemote, hasIdentity = snap.hasIdentity, untrackedDirFiles = snap.untrackedDirFiles, branchesLoaded = false, branchesLoading = false, branches = emptyList(), tags = emptyList(), repos = repos, subdirs = subdirs, workspaceRoot = workspaceRoot, currentRepo = effectiveRepo, issues = emptyList(), issuesLoading = false, issuesLoaded = false, issuesError = null, issueDetailNumber = null, issueDetail = null, issueDetailLoading = false, issueComments = emptyList(), issueCommentsLoading = false, contributors = emptyList(), issueActionBusy = false, issueActionError = null, issueSelectionMode = false, selectedIssueNumbers = emptySet(), issueBulkBusy = false, remoteUrl = snap.remoteUrl, isGitHub = snap.isGitHub, hasGitHubToken = snap.hasGitHubToken)
+                    it.copy(loading = false, notARepo = false, status = snap.status, commits = commits, graph = snap.graph, hasRemote = snap.hasRemote, hasIdentity = snap.hasIdentity, untrackedDirFiles = snap.untrackedDirFiles, branchesLoaded = false, branchesLoading = false, branches = emptyList(), tags = emptyList(), repos = repos, subdirs = subdirs, workspaceRoot = workspaceRoot, currentRepo = effectiveRepo, issues = emptyList(), issuesLoading = false, issuesLoaded = false, issuesError = null, issueDetailNumber = null, issueDetail = null, issueDetailLoading = false, issueComments = emptyList(), issueCommentsLoading = false, contributors = emptyList(), issueActionBusy = false, issueActionError = null, issueSelectionMode = false, selectedIssueNumbers = emptySet(), issueBulkBusy = false, pulls = emptyList(), pullsLoading = false, pullsLoaded = false, pullsError = null, pullChecks = emptyMap(), pullDetailNumber = null, pullDetail = null, pullDetailLoading = false, pullDetailChecks = null, pullDetailChecksLoading = false, pullComments = emptyList(), pullCommentsLoading = false, pullActionBusy = false, pullCommits = emptyList(), pullCommitsLoading = false, pullFiles = emptyList(), pullFilesLoading = false, createPullVisible = false, createPullBusy = false, createPullError = null, remoteUrl = snap.remoteUrl, isGitHub = snap.isGitHub, hasGitHubToken = snap.hasGitHubToken)
                 }
                 // 页面已打开：后台拉取全量分支/标签，用户切到 BRANCHES tab 时无需再等。
                 loadBranches()
-                // GitHub 仓库且有 token 时后台拉取 issue 列表；切仓库/手动刷新都会重置 issuesLoaded 重新拉取。
+                // GitHub 仓库且有 token 时后台拉取 issue / PR 列表；切仓库/手动刷新都会重置已加载标记重新拉取。
                 loadIssues()
+                loadPulls()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "刷新失败", e)
@@ -326,7 +383,10 @@ class GitViewModel @Inject constructor(
             val hasToken = issuesRepository.hasGitHubToken()
             val wasWithoutToken = !_state.value.hasGitHubToken
             _state.update { it.copy(hasGitHubToken = hasToken) }
-            if (hasToken && wasWithoutToken) loadIssues()
+            if (hasToken && wasWithoutToken) {
+                loadIssues()
+                loadPulls()
+            }
         }
     }
 
@@ -594,6 +654,451 @@ class GitViewModel @Inject constructor(
     fun setIssuesSort(sort: String) {
         if (_state.value.issuesSort == sort) return
         _state.update { it.copy(issuesSort = sort) }
+    }
+
+    // ── Pull Requests ──
+
+    /** 正在进行的 PR 列表加载任务；切换过滤/刷新时取消旧的，避免过期结果覆盖。 */
+    private var pullsLoadJob: Job? = null
+    /** PR 列表 CI 批量加载任务。 */
+    private var pullChecksJob: Job? = null
+    /** PR 详情加载任务（详情、CI、评论都由它的子协程执行）。 */
+    private var pullDetailJob: Job? = null
+
+    /**
+     * 加载当前过滤下的 PR 列表。仅 GitHub 仓库且有 token 时请求；否则置已加载（展示提示态）。
+     * 列表返回后异步给前 [PR_CHECKS_ON_LIST] 条拉 CI 汇总，不阻塞列表展示。
+     */
+    fun loadPulls() {
+        val current = _state.value
+        if (!current.isGitHub || !current.hasGitHubToken) {
+            pullsLoadJob?.cancel()
+            pullChecksJob?.cancel()
+            _state.update { it.copy(pullsLoaded = true, pullsLoading = false) }
+            return
+        }
+        val filter = current.pullsFilter
+        pullsLoadJob?.cancel()
+        pullChecksJob?.cancel()
+        _state.update { it.copy(pullsLoading = true, pullsError = null, pullChecks = emptyMap()) }
+        pullsLoadJob = viewModelScope.launch {
+            try {
+                val list = pullRequestsRepository.listPullRequests(filter).getOrThrow()
+                if (_state.value.pullsFilter != filter) return@launch
+                _state.update { it.copy(pulls = list, pullsLoading = false, pullsLoaded = true, pullsError = null) }
+                loadPullChecks(list, filter)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "加载 PR 列表失败", e)
+                if (_state.value.pullsFilter != filter) return@launch
+                _state.update { it.copy(pullsLoading = false, pullsLoaded = true, pullsError = e.message) }
+            }
+        }
+    }
+
+    /** 切换 PR 过滤（open/closed/all）并重新拉取。 */
+    fun setPullsFilter(filter: String) {
+        if (_state.value.pullsFilter == filter) return
+        _state.update {
+            it.copy(
+                pullsFilter = filter,
+                pulls = emptyList(),
+                pullsLoaded = false,
+                pullsError = null,
+                pullChecks = emptyMap()
+            )
+        }
+        loadPulls()
+    }
+
+    /** 切换 PR 排序方式（newest/oldest/updated）。 */
+    fun setPullsSort(sort: String) {
+        if (_state.value.pullsSort == sort) return
+        _state.update { it.copy(pullsSort = sort) }
+    }
+
+    /**
+     * 给列表前若干条 PR 拉 CI 汇总。单条失败不影响其它项；结果回写前再次校验过滤条件，
+     * 避免切换过滤后旧请求把徽章写到新列表上。
+     */
+    private fun loadPullChecks(pulls: List<GitHubPullRequest>, filter: String) {
+        val targets = pulls.take(PR_CHECKS_ON_LIST).filter { it.head.sha.isNotBlank() }
+        if (targets.isEmpty()) return
+        pullChecksJob = viewModelScope.launch {
+            val semaphore = Semaphore(PR_CHECKS_CONCURRENCY)
+            val results = coroutineScope {
+                targets.map { pr ->
+                    async {
+                        semaphore.withPermit {
+                            pr.number to pullRequestsRepository.getChecks(pr.head.sha).getOrNull()
+                        }
+                    }
+                }.awaitAll()
+            }
+            if (_state.value.pullsFilter != filter) return@launch
+            val summaries = results.mapNotNull { (number, summary) -> summary?.let { number to it } }.toMap()
+            if (summaries.isEmpty()) return@launch
+            _state.update { it.copy(pullChecks = it.pullChecks + summaries) }
+        }
+    }
+
+    /** 打开某条 PR 的详情页：并行拉详情、CI 与评论；失败时页内显示错误+重试。 */
+    fun openPullRequestDetail(number: Long) {
+        pullDetailJob?.cancel()
+        _state.update {
+            it.copy(
+                pullDetailNumber = number,
+                pullDetail = null,
+                pullDetailLoading = true,
+                pullDetailChecks = null,
+                pullDetailChecksLoading = true,
+                pullComments = emptyList(),
+                pullCommentsLoading = true,
+                pullActionBusy = false,
+                pullCommits = emptyList(),
+                pullCommitsLoading = true,
+                pullFiles = emptyList(),
+                pullFilesLoading = true
+            )
+        }
+        pullDetailJob = viewModelScope.launch {
+            try {
+                val pr = pullRequestsRepository.getPullRequest(number).getOrThrow()
+                if (_state.value.pullDetailNumber != number) return@launch
+                _state.update { it.copy(pullDetail = pr, pullDetailLoading = false) }
+                launch { loadPullDetailChecks(number, pr.head.sha) }
+                launch { loadPullCommentsFor(number) }
+                launch { loadPullCommitsFor(number) }
+                launch { loadPullFilesFor(number) }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "加载 PR 详情失败: $number", e)
+                if (_state.value.pullDetailNumber != number) return@launch
+                _state.update {
+                    it.copy(
+                        pullDetail = null,
+                        pullDetailLoading = false,
+                        pullDetailChecksLoading = false,
+                        pullCommentsLoading = false,
+                        pullCommitsLoading = false,
+                        pullFilesLoading = false
+                    )
+                }
+            }
+        }
+    }
+
+    /** 关闭 PR 详情页。 */
+    fun closePullRequestDetail() {
+        pullDetailJob?.cancel()
+        _state.update {
+            it.copy(
+                pullDetailNumber = null,
+                pullDetail = null,
+                pullDetailLoading = false,
+                pullDetailChecks = null,
+                pullDetailChecksLoading = false,
+                pullComments = emptyList(),
+                pullCommentsLoading = false,
+                pullActionBusy = false,
+                pullCommits = emptyList(),
+                pullCommitsLoading = false,
+                pullFiles = emptyList(),
+                pullFilesLoading = false
+            )
+        }
+    }
+
+    /** 详情页重试/刷新入口：重新拉取当前 PR 的详情、CI 与评论。 */
+    fun refreshPullRequestDetail() {
+        val number = _state.value.pullDetailNumber ?: return
+        openPullRequestDetail(number)
+    }
+
+    private suspend fun loadPullDetailChecks(number: Long, sha: String) {
+        val summary = pullRequestsRepository.getChecks(sha).getOrNull()
+        if (_state.value.pullDetailNumber != number) return
+        _state.update { it.copy(pullDetailChecks = summary, pullDetailChecksLoading = false) }
+    }
+
+    private suspend fun loadPullCommentsFor(number: Long) {
+        val comments = issuesRepository.getComments(number).getOrDefault(emptyList())
+        if (_state.value.pullDetailNumber != number) return
+        _state.update { it.copy(pullComments = comments, pullCommentsLoading = false) }
+    }
+
+    /** 在详情页发表评论（PR 评论与 issue 评论共用接口）。 */
+    fun addPullComment(body: String) {
+        val number = _state.value.pullDetailNumber ?: return
+        val text = body.trim()
+        if (text.isEmpty() || _state.value.pullActionBusy) return
+        _state.update { it.copy(pullActionBusy = true) }
+        viewModelScope.launch {
+            val result = issuesRepository.addComment(number, text)
+            if (result.isSuccess) {
+                _state.update { it.copy(pullActionBusy = false, toast = context.getString(R.string.git_pr_comment_success)) }
+                loadPullCommentsFor(number)
+            } else {
+                _state.update { it.copy(pullActionBusy = false, toast = context.getString(R.string.git_pr_comment_failed)) }
+            }
+        }
+    }
+
+    /** 删除详情页评论。 */
+    fun deletePullComment(commentId: Long) {
+        val number = _state.value.pullDetailNumber ?: return
+        if (_state.value.pullActionBusy) return
+        _state.update { it.copy(pullActionBusy = true) }
+        viewModelScope.launch {
+            val result = issuesRepository.deleteComment(commentId)
+            if (result.isSuccess) {
+                _state.update { it.copy(pullActionBusy = false, toast = context.getString(R.string.git_pr_comment_deleted)) }
+                loadPullCommentsFor(number)
+            } else {
+                _state.update { it.copy(pullActionBusy = false, toast = context.getString(R.string.git_pr_comment_failed)) }
+            }
+        }
+    }
+
+    private suspend fun loadPullCommitsFor(number: Long) {
+        val commits = pullRequestsRepository.listPullRequestCommits(number).getOrDefault(emptyList())
+        if (_state.value.pullDetailNumber != number) return
+        _state.update { it.copy(pullCommits = commits, pullCommitsLoading = false) }
+    }
+
+    private suspend fun loadPullFilesFor(number: Long) {
+        val files = pullRequestsRepository.listPullRequestFiles(number).getOrDefault(emptyList())
+        if (_state.value.pullDetailNumber != number) return
+        _state.update { it.copy(pullFiles = files, pullFilesLoading = false) }
+    }
+
+    /** 关闭/重开当前详情页 PR。 */
+    private fun updatePullRequestState(state: String) {
+        val number = _state.value.pullDetailNumber ?: return
+        if (_state.value.pullActionBusy) return
+        _state.update { it.copy(pullActionBusy = true) }
+        viewModelScope.launch {
+            try {
+                val pull = pullRequestsRepository.setPullRequestState(number, state).getOrThrow()
+                _state.update {
+                    it.copy(
+                        pullActionBusy = false,
+                        pullDetail = pull,
+                        toast = context.getString(
+                            if (state == "closed") R.string.git_pr_close_success
+                            else R.string.git_pr_reopen_success
+                        )
+                    )
+                }
+                loadPulls()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "更新 PR 状态失败: $number -> $state", e)
+                _state.update {
+                    it.copy(
+                        pullActionBusy = false,
+                        toast = context.getString(R.string.git_pr_action_failed)
+                    )
+                }
+            }
+        }
+    }
+
+    /** 关闭当前详情页 PR。 */
+    fun closePullRequest() = updatePullRequestState("closed")
+
+    /** 重开当前详情页 PR。 */
+    fun reopenPullRequest() = updatePullRequestState("open")
+
+    /** 合并当前详情页 PR。[method] 取 merge / squash / rebase。 */
+    fun mergePullRequest(method: String = "merge") {
+        val number = _state.value.pullDetailNumber ?: return
+        if (_state.value.pullActionBusy) return
+        _state.update { it.copy(pullActionBusy = true) }
+        viewModelScope.launch {
+            try {
+                val result = pullRequestsRepository.mergePullRequest(number, method).getOrThrow()
+                if (!result.merged) {
+                    _state.update {
+                        it.copy(
+                            pullActionBusy = false,
+                            toast = result.message.ifBlank { context.getString(R.string.git_pr_merge_failed) }
+                        )
+                    }
+                    return@launch
+                }
+                _state.update {
+                    it.copy(
+                        pullActionBusy = false,
+                        toast = context.getString(R.string.git_pr_merge_success)
+                    )
+                }
+                loadPulls()
+                refreshPullRequestDetail()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "合并 PR 失败: $number", e)
+                _state.update {
+                    it.copy(
+                        pullActionBusy = false,
+                        toast = context.getString(R.string.git_pr_merge_failed)
+                    )
+                }
+            }
+        }
+    }
+
+    /** 打开新建 PR 弹层。 */
+    fun showCreatePull() = _state.update {
+        it.copy(createPullVisible = true, createPullBusy = false, createPullError = null)
+    }
+
+    /** 关闭新建 PR 弹层。 */
+    fun hideCreatePull() = _state.update {
+        it.copy(createPullVisible = false, createPullBusy = false, createPullError = null)
+    }
+
+    /** 基于已存在的远程分支创建 PR。 */
+    fun createPull(
+        title: String,
+        body: String?,
+        head: String,
+        base: String,
+        draft: Boolean = false
+    ) {
+        if (_state.value.createPullBusy) return
+        val cleanTitle = title.trim()
+        val cleanHead = head.trim()
+        val cleanBase = base.trim()
+        if (cleanTitle.isBlank() || cleanHead.isBlank() || cleanBase.isBlank()) {
+            _state.update { it.copy(createPullError = context.getString(R.string.git_pr_create_missing_fields)) }
+            return
+        }
+        if (cleanHead == cleanBase) {
+            _state.update { it.copy(createPullError = context.getString(R.string.git_pr_create_same_branch)) }
+            return
+        }
+        _state.update { it.copy(createPullBusy = true, createPullError = null) }
+        viewModelScope.launch {
+            try {
+                val pull = pullRequestsRepository
+                    .createPullRequest(cleanTitle, cleanHead, cleanBase, body?.trim()?.ifBlank { null }, draft)
+                    .getOrThrow()
+                _state.update {
+                    it.copy(
+                        createPullBusy = false,
+                        createPullVisible = false,
+                        createPullError = null,
+                        toast = context.getString(R.string.git_pr_create_success)
+                    )
+                }
+                loadPulls()
+                openPullRequestDetail(pull.number)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "创建 PR 失败", e)
+                _state.update {
+                    it.copy(
+                        createPullBusy = false,
+                        createPullError = context.getString(R.string.git_pr_create_failed, e.message.orEmpty())
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 把当前工作区改动作为 PR 提交：新建分支 → 暂存全部 → 提交 → 推送 → 创建 PR。
+     * 任一步失败都保留现场（已建分支/提交不会被回滚），错误显示在弹层里。
+     */
+    fun createPullFromWorktree(
+        title: String,
+        body: String?,
+        newBranch: String,
+        base: String,
+        commitMessage: String,
+        draft: Boolean = false
+    ) {
+        if (_state.value.createPullBusy) return
+        val cleanTitle = title.trim()
+        val cleanBase = base.trim()
+        val branch = newBranch.trim().ifBlank { "aiverse/pr-${System.currentTimeMillis() / 1000}" }
+        val message = commitMessage.trim().ifBlank { cleanTitle }
+        if (cleanTitle.isBlank() || cleanBase.isBlank() || message.isBlank()) {
+            _state.update { it.copy(createPullError = context.getString(R.string.git_pr_create_missing_fields)) }
+            return
+        }
+        if (!_state.value.hasRemote) {
+            _state.update { it.copy(createPullError = context.getString(R.string.git_pr_create_no_remote)) }
+            return
+        }
+        if (!_state.value.hasIdentity) {
+            _state.update { it.copy(createPullError = context.getString(R.string.git_pr_create_no_identity)) }
+            return
+        }
+        _state.update { it.copy(createPullBusy = true, createPullError = null) }
+        viewModelScope.launch {
+            try {
+                val status = repository.status()
+                if (!status.hasChanges) {
+                    throw IllegalStateException(context.getString(R.string.git_pr_create_no_changes))
+                }
+                if (status.isDetached) {
+                    throw IllegalStateException(context.getString(R.string.git_pr_create_detached))
+                }
+                repository.createBranch(branch, null, true)
+                repository.stageAll()
+                repository.commit(message)
+                repository.push()
+                val pull = pullRequestsRepository
+                    .createPullRequest(cleanTitle, branch, cleanBase, body?.trim()?.ifBlank { null }, draft)
+                    .getOrThrow()
+                _state.update {
+                    it.copy(
+                        createPullBusy = false,
+                        createPullVisible = false,
+                        createPullError = null,
+                        toast = context.getString(R.string.git_pr_create_success)
+                    )
+                }
+                loadPulls()
+                openPullRequestDetail(pull.number)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                FileLogger.e(TAG, "从当前改动创建 PR 失败", e)
+                _state.update {
+                    it.copy(
+                        createPullBusy = false,
+                        createPullError = context.getString(R.string.git_pr_create_failed, e.message.orEmpty())
+                    )
+                }
+            }
+        }
+    }
+
+    /** 创建 issue；成功后刷新列表，失败只提示。 */
+    fun createIssue(
+        title: String,
+        body: String?,
+        labels: List<String>? = null,
+        assignees: List<String>? = null
+    ) {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isBlank()) return
+        viewModelScope.launch {
+            val result = issuesRepository.createIssue(
+                cleanTitle,
+                body?.trim()?.ifBlank { null },
+                labels?.filter { it.isNotBlank() }?.ifEmpty { null },
+                assignees?.filter { it.isNotBlank() }?.ifEmpty { null }
+            )
+            if (result.isSuccess) {
+                _state.update { it.copy(toast = context.getString(R.string.git_issue_create_success)) }
+                loadIssues()
+            } else {
+                _state.update { it.copy(toast = context.getString(R.string.git_issue_create_failed)) }
+            }
+        }
     }
 
     /** 切换多选：进入/退出多选模式，进入时清空已选。 */

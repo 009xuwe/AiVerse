@@ -1,6 +1,6 @@
 # Git 版本管理
 
-在项目工作区打开 Git 页面，可以可视化地管理代码版本。底部有四个标签页：状态、分支、提交、Issues。如果当前目录不是 Git 仓库，可一键初始化为空白仓库（默认分支为 `main`），或输入远程地址直接克隆已有仓库（**1.0.0 起**）。
+在项目工作区打开 Git 页面，可以可视化地管理代码版本。底部有五个标签页：状态、分支、提交、Issues、PR。如果当前目录不是 Git 仓库，可一键初始化为空白仓库（默认分支为 `main`），或输入远程地址直接克隆已有仓库（**1.0.0 起**）。
 
 ## 多目录识别
 
@@ -152,14 +152,43 @@ Git 页面第 4 个标签页「Issues」用于管理托管平台的议题（GitH
   - **搜索**：按关键词过滤议题。
 - **详情**：点一条议题查看完整详情，包括描述、评论、标签、受理人、里程碑等。
 - **写操作**：
-  - **新建 / 编辑**：填写标题与描述。
+  - **新建 / 编辑**：列表右上角 `+` 打开新建表单，填写标题、描述、标签与受理人；详情页可编辑标题与描述。
   - **关闭**：需选择关闭原因（`completed` 已完成 / `not_planned` 不计划修复）。
   - **重开**：重新打开已关闭的议题。
   - **评论**：发表评论。
   - **标签 / 受理人 / 里程碑**：设置或修改。
   - **锁定**：锁定议题，禁止继续评论。
 - **多选批量**：长按列表项进入多选，顶部出现「已选 N 项」操作条，可对选中的议题**批量关闭**、**批量加标签**（多个标签用英文逗号分隔）、**批量分配受理人**（填用户 login，逗号分隔，**1.0.3 起**）；写操作会返回成功/部分失败的提示。
-- **AI 工具**：AI 可用 `listIssues` / `getIssue` 自动查看列表与详情；`createIssue` / `updateIssue` 属写操作，执行前需你确认。
+- **让 AI 处理**：详情页「让 AI 处理此 Issue」把 issue 编号、标题与创建者整理成提示词放进会话草稿；发送后 AI 会读取 issue、修改代码、跑测试，创建并推送分支，再用 `createPullRequest` 建 PR 并引用该 issue。
+- **AI 工具**：AI 可用 `listIssues` / `getIssue` 自动查看列表与详情；`getIssue` 默认返回前 10 条评论（可用 `commentLimit` 调整，最多 100），评论常包含补充说明，处理 issue 前应先阅读；`createIssue` / `updateIssue` 可创建、关闭、评论、改标签与受理人等，属写操作，执行前需你确认。
+
+## Pull Requests
+
+Git 页面第 5 个标签页「PR」用于查看和审查 GitHub Pull Request，需仓库关联 GitHub 远程并已配置 GitHub token：
+
+- **列表**：每行显示状态（打开 / 草稿 / 已合并 / 已关闭）、标题、编号、作者、源分支 → 目标分支与 CI 汇总；顶部可按打开 / 已关闭 / 全部筛选，并按最新、最早、最后更新排序。
+- **CI 状态**：列表只为前 20 条拉取检查状态（通过 / 失败 / 进行中），详情页始终拉取完整结果；没有 GitHub Actions 检查时会回退读取旧版 commit status。
+- **详情**：点一条 PR 查看描述、标签、增删统计、提交记录、文件变更、CI 检查详情（失败检查带摘要）与评论，可直接发表或删除自己的评论。
+- **管理**：详情页可关闭 / 重开 PR；未合并且非草稿的 PR 可合并，支持合并提交、Squash、Rebase 三种方式，确认后写入目标分支。合并失败通常由冲突、分支保护或检查未通过导致。
+- **新建 PR**：列表右上角 `+` 打开表单，两种方式：
+  - **已有分支**：填标题、描述、源分支与目标分支，源分支必须已推送到远程。
+  - **当前改动**：填标题、目标分支、新分支名（可留空自动生成）与提交信息，应用会自动新建分支、暂存全部改动、提交、推送，再创建 PR。
+- **AI 审查**：详情页点「让 AI 审查」会把 PR 编号、标题、分支与 CI 状态整理成提示词放进当前会话草稿，确认发送后 AI 会用 `getPullRequest` 确认范围、`reviewPr` 拉取 diff 并逐项审查。
+- **AI 修复 CI**：CI 有失败检查时显示「让 AI 修复 CI」，提示词会带上失败检查名，AI 查看失败详情后定位并修改工作区代码。
+- **AI 工具**：`listPullRequests` / `getPullRequest` 只读自动放行；`createPullRequest`（创建）与 `updatePullRequest`（关闭 / 重开 / 合并 / 评论）为写操作，执行前需你确认。
+- **令牌安全**：GitHub token 只在本地仓库层和容器 credential helper 中使用，不会写进对话、提示词、日志或工具结果。
+- **限制**：Approve / Request changes 等 review 审批动作暂未提供；需要时到 GitHub 网页完成。
+
+### AI 提交与 PR
+
+在「让 AI 处理此 Issue」或让 AI 修复 CI 时，AI 会直接使用容器内 git 完成提交与推送：
+
+- 在工作区仓库内执行 `git status` / `git diff --stat`，新建分支，`git add` / `git commit` / `git push -u origin <branch>`。
+- 推送凭证由容器内自定义 helper 自动注入：工作区仓库通过 `GIT_CONFIG_GLOBAL=~/.aiverse/.gitconfig` 加载 `credential.helper`；helper 自己读取 `~/.aiverse/git-credentials`、完成反转与 base64 解码，并按 host 取 token。**反转与解码在 helper 内部完成，AI 不需要知道算法，也不会自己反转或读取文件。**
+- 提交前 AI 先检查提交署名（`git config user.name` / `user.email`），再检查凭据文件是否存在（`test -s ~/.aiverse/git-credentials`）；任一项缺失都会停止，并提示你打开 Git 页右上角钥匙 → 凭据与署名，补好署名或添加 github.com 的 token，配置完成后再继续。
+- AI 不需要、也不会读取 token；token 不会进入对话、提示词、日志或工具结果。`createPullRequest` / `updatePullRequest` 在 App 的本地仓库层使用同一份 token。
+- 推送成功后 AI 调用 `createPullRequest` 创建 PR；认证失败、没有远程或分支保护时按 git 原始错误提示你处理。
+- 只对 HTTPS remote 生效；SSH remote 走 ssh-agent。
 
 ## 差异视图
 

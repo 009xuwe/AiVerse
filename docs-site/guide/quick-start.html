@@ -127,7 +127,7 @@ body{line-height:1.65}
 <ul><li><strong>想要稳定，就用正式版</strong>：见上方<a href="https://aivapp.cn/download" target="_blank" rel="noreferrer">官网下载页</a>。</li><li><strong>想要测试新功能，就用预览版</strong>：见 <a href="https://github.com/yhdmgf/AiVerse/releases" target="_blank" rel="noreferrer">GitHub Releases</a> 中带 <code>rc</code> 的构建。</li><li><strong>测试版不推荐使用</strong>：它每日定时构建服务器上的最新代码，用于验证最新版能否正常工作。但测试版版本号与正式版、预览版都不相同，不能正常维护和迭代，可能不稳定甚至存在高危问题；App 各页面还会显示 <strong>Beta</strong> 水印，且不参与应用内检查更新。</li></ul>
 <p>::: tip 测试版从哪来 测试版发布到 <a href="https://github.com/yhdmgf/aiverse-beta/releases" target="_blank" rel="noreferrer">aiverse-beta Releases</a>。该 commit 尚未定时构建时，可到<a href="https://aivapp.cn/trigger/" target="_blank" rel="noreferrer">测试版触发页</a>一键代触发 <code>Nightly Build</code>（全局限频，1 小时一次），或等下一个定时点（北京时间 0/6/12/18 点）。 :::</p>
 <h2 id="1-配置-ai-供应商" tabindex="-1">1. 配置 AI 供应商 <a class="header-anchor" href="#1-配置-ai-供应商" aria-label="Permalink to &quot;1. 配置 AI 供应商&quot;">​</a></h2>
-<p>::: tip 首次启动有新手引导 首次启动时会自动开启新手引导（1.0.0 新增），依次引导完成下面几步；也可随时点击「跳过」，或之后在「设置 → 重新运行新手引导」再次启动。 :::</p>
+<p>::: tip 首次启动有设置向导与新手引导 首次启动会先走 4/5 页设置向导：协议、系统权限、外观，测试版还会出现正式版数据导入，最后一页可给项目点 Star。点「开始使用」后会询问是否进入新手引导：选「进入」继续聚光灯教学，选「先不用」可稍后在「设置 → 重新运行新手引导」开始。权限页首屏只列通知与后台运行，存储、安装应用、悬浮窗、自启动收在「更多权限」里。 :::</p>
 <p>AiVerse 自身不提供模型，需要先接入一个模型服务。</p>
 <ol><li>点主页左上角菜单按钮打开侧边栏，点底部「设置」。</li><li>进入「AI 配置 → AI 供应商」，点右上角 + 新建，在「配置」标签填写四项：</li></ol>
 <ul><li><strong>名称</strong>：别名，例如「官方 OpenAI」。</li><li><strong>上游格式</strong>：<code>OpenAI</code> / <code>Anthropic</code> / <code>Gemini</code> 三选一。第三方中转站一般选 <code>OpenAI</code>。</li><li><strong>API Key</strong>：你的密钥，形如 <code>sk-xxx</code>。</li><li><strong>Base URL</strong>：API 根地址，<strong>留空时按上游格式使用官方地址</strong>；用第三方中转时填入中转服务的地址。</li></ul>
@@ -253,7 +253,7 @@ document.addEventListener('keydown',function(e){
 })();
 </script><script>
 (function(){
-  function goSearch(e){e.preventDefault();window.location.href='/search.html';}
+  function goSearch(e){e.preventDefault();window.location.href='/search.php';}
   document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.VPLocalSearch .button, .v-search-btn, .DocSearch-Button').forEach(function(b){b.addEventListener('click',goSearch);});
   });

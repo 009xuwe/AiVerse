@@ -65,6 +65,7 @@ import com.aiverse.feature.git.domain.model.GitHubIssue
 import com.aiverse.feature.git.domain.model.IssueLabel
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.CheckCircle
+import compose.icons.feathericons.Plus
 import compose.icons.feathericons.User
 import coil.compose.AsyncImage
 
@@ -112,7 +113,8 @@ internal fun IssuesTab(
     onSelectAll: () -> Unit = {},
     onBulkClose: () -> Unit = {},
     onBulkAddLabels: (List<String>) -> Unit = {},
-    onBulkAssign: (List<String>) -> Unit = {}
+    onBulkAssign: (List<String>) -> Unit = {},
+    onCreateIssue: () -> Unit = {}
 ) {
     // remoteUrl 变化（如切换仓库）时懒加载；仅 GitHub 且有 token 时触发。
     LaunchedEffect(remoteUrl) {
@@ -156,6 +158,14 @@ internal fun IssuesTab(
                         onClick = { onFilterChange("closed") }
                     )
                     Spacer(Modifier.weight(1f))
+                    IconButton(onClick = onCreateIssue, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            FeatherIcons.Plus,
+                            contentDescription = stringResource(R.string.git_issue_create),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     SortDropdown(current = sort, onSelect = onSortChange)
                 }
             }
@@ -513,7 +523,7 @@ private fun IssueRow(
  * 加载失败或用户名无法生成头像 URL 时不渲染头像，由调用方在其旁显示名字文字作为降级（无首字母占位）。
  */
 @Composable
-private fun IssueAvatar(name: String, size: Dp, modifier: Modifier = Modifier) {
+internal fun IssueAvatar(name: String, size: Dp, modifier: Modifier = Modifier) {
     val url = githubAvatarUrl(name)
     if (url.isEmpty()) return
     var failed by remember { mutableStateOf(false) }

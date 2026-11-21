@@ -249,6 +249,8 @@ sh gradlew :app:assembleUniversalDebug \
 - `type` ∈ `feat | fix | refactor | docs | style | chore | ci | build | perf | test`。
 - `scope` 可选：`agent | settings | terminal | workspace | git | ui | mcp | db | core | docs | build | deps`。
 - `subject` 一行简述，中英文均可，句末不加句号。
+- 项目由 `yhdmgf` 与 `qldwj` 两位维护者共同维护；提交按受理人分别署名：bug → `qldwj`，功能/UI → `yhdmgf`；非 issue 的汇总提交默认 `yhdmgf`。
+- 两位维护者使用各自的 GitHub 邮箱署名：`yhdmgf` 用 `225713231+yhdmgf@users.noreply.github.com`，`qldwj` 用 `qldwj@users.noreply.github.com`；保持独立署名，不交叉使用邮箱。
 - 修多个 issue 时，**每个 issue 单独一行** `Closes #N`，**禁止写成一行**：
 
 ```text
@@ -258,7 +260,18 @@ Closes #73
 
 - 仅紧急情况可用 `git commit --no-verify` 跳过校验。
 
-### 5.8 代码质量准则
+### 5.8 更新公告（release-notes）
+
+- 文件：`docs-site/release-notes/<版本号>.md`，文件名用纯版本号（如 `1.0.5.md`），不加 `v`。
+- 默认不写标题、不写分类；正文直接从 `-` 列表开始，每个改动/每个已解决的问题单独一行。
+- 每条 5–13 个汉字，长度自然浮动、不要固定成同一个字数；不写英文、不写括号，括号内也不补充说明。
+- issue 编号放行尾，例如 `- 修复远端图片 #173`；不要把 `#N` 写在行首。
+- 默认不写 `> [!NOTE]`；只有确实需要升级提醒（迁移、签名、兼容性、必须手动安装）才加，保持一两行。
+- 本轮关闭的 issue 全部写进公告，一个不漏。
+- 时机：所有代码最终改完、单测通过、迁移对账通过之后，提交/推送前写；不要在开发中途提前写。
+- 覆盖范围：上一个正式版本到现在；发版流程按 `<版本号>.md` 读取。
+
+### 5.9 代码质量准则
 
 - **参考其他代码的样式**：编写前先读同目录 / 同 feature / 同 pattern 的已有代码，沿用其命名、格式、组织方式，保持全局一致，不凭空发明新写法。
 - 遵循**“不要最简单，要最优解”**，保持**大局观**。

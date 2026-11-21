@@ -84,6 +84,7 @@ import androidx.navigation.navArgument
 import com.aiverse.core.theme.AIEditorTheme
 import com.aiverse.core.theme.AppThemePreset
 import com.aiverse.core.theme.FileTreeDisplayPrefs
+import com.aiverse.core.theme.LocalChatPanelOpacity
 import com.aiverse.core.theme.UIDensity
 import com.aiverse.core.ui.BetaWatermark
 import com.aiverse.core.ui.ImageSource
@@ -129,7 +130,6 @@ import com.aiverse.feature.browser.presentation.BrowserScreen
 import com.aiverse.feature.git.presentation.GitViewModel
 import com.aiverse.feature.credentials.presentation.component.CredentialScreen
 import com.aiverse.feature.git.presentation.component.GitScreen
-import com.aiverse.feature.onboarding.data.OnboardingStatus
 import com.aiverse.feature.onboarding.domain.OnboardingCoordinator
 import com.aiverse.feature.onboarding.domain.OnboardingStateHolder
 import com.aiverse.feature.onboarding.domain.OnboardingStep
@@ -356,6 +356,7 @@ class MainActivity : ComponentActivity() {
             val codeShowLineNumber by appearanceSettings.codeShowLineNumberFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsRepository.DEFAULT_CODE_SHOW_LINE_NUMBER)
             val userBubbleOpacity by appearanceSettings.userBubbleOpacityFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsRepository.DEFAULT_BUBBLE_OPACITY)
             val assistantBubbleOpacity by appearanceSettings.assistantBubbleOpacityFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsRepository.DEFAULT_BUBBLE_OPACITY)
+            val chatPanelOpacity by appearanceSettings.chatPanelOpacityFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsRepository.DEFAULT_PANEL_OPACITY)
             val uiFontScale by appearanceSettings.uiFontScaleFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsRepository.DEFAULT_UI_FONT_SCALE)
             val uiFontPath by appearanceSettings.uiFontPathFlow.collectAsStateWithLifecycle(initialValue = "")
             val uiDensity by appearanceSettings.uiDensityFlow.collectAsStateWithLifecycle(initialValue = UIDensity.STANDARD)
@@ -406,6 +407,8 @@ class MainActivity : ComponentActivity() {
                 bubbleCornerDp = bubbleCorner,
                 imageCornerDp = imageCorner
             ) {
+                // 启动向导结束后的引导选择；由 LaunchGate 写入，下面 LaunchedEffect 消费。
+                var startOnboardingAfterWizard by remember { mutableStateOf<Boolean?>(null) }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -421,11 +424,15 @@ class MainActivity : ComponentActivity() {
                             onExit = {
                                 finishAffinity()
                                 exitProcess(0)
-                            }
+                            },
+                            onFinished = { start -> startOnboardingAfterWizard = start }
                         ) {
                             AppNavigation(
                                 onboardingRepository = onboardingRepository,
                                 agreementAccepted = true,
+                                startOnboardingAfterWizard = startOnboardingAfterWizard,
+                                onStartOnboardingConsumed = { startOnboardingAfterWizard = null },
+                                chatPanelOpacity = chatPanelOpacity,
                                 isContainerReady = isContainerReady,
                                 webMessageBridge = this@MainActivity.webMessageBridge,
                                 pluginUpdateNotifier = this@MainActivity.pluginUpdateNotifier,
@@ -491,6 +498,10 @@ private const val MAX_PANE_SPLIT = 0.7f
 fun AppNavigation(
     onboardingRepository: com.aiverse.feature.onboarding.data.OnboardingRepository,
     agreementAccepted: Boolean,
+    /** 启动向导结束后的选择：true 进入聚光灯引导，false 跳过；null 表示尚未选择。 */
+    startOnboardingAfterWizard: Boolean? = null,
+    onStartOnboardingConsumed: () -> Unit = {},
+    chatPanelOpacity: Int = 100,
     isContainerReady: () -> Boolean,
     webMessageBridge: com.aiverse.feature.web.WebMessageBridge,
     pluginUpdateNotifier: com.aiverse.feature.plugins.domain.PluginUpdateNotifier,
@@ -552,17 +563,14 @@ fun AppNavigation(
             scope = onboardingScope
         )
     }
-    // 启动判断：IN_PROGRESS 则激活引导。
-    LaunchedEffect(agreementAccepted) {
-        if (!agreementAccepted) return@LaunchedEffect
-        val status = onboardingRepository.status()
-        // 引导步骤集变化（版本升级新增步骤）时，强制从第 1 步重新引导，避免旧进度跳过新步骤。
-        val stepsVersion = onboardingRepository.stepsVersion()
-        if (stepsVersion != OnboardingStep.totalSteps) {
-            onboardingRepository.markStepsVersion(OnboardingStep.totalSteps)
-            onboardingCoordinator.initialize(OnboardingStatus.IN_PROGRESS)
+    // 启动向导结束后再决定是否进入聚光灯引导：用户选「进入」才启动，选「先不用」持久化为跳过。
+    LaunchedEffect(startOnboardingAfterWizard) {
+        val start = startOnboardingAfterWizard ?: return@LaunchedEffect
+        onStartOnboardingConsumed()
+        if (start) {
+            onboardingCoordinator.resetAndStart()
         } else {
-            onboardingCoordinator.initialize(status ?: OnboardingStatus.IN_PROGRESS)
+            onboardingCoordinator.skip()
         }
     }
 
@@ -593,6 +601,7 @@ fun AppNavigation(
     val currentSessionId by agentViewModel.currentSessionId.collectAsStateWithLifecycle()
     val agentStates by agentViewModel.agentStates.collectAsStateWithLifecycle()
     val awaitingPermissionSessionIds by agentViewModel.awaitingPermissionSessionIds.collectAsStateWithLifecycle()
+    val awaitingQuestionSessionIds by agentViewModel.awaitingQuestionSessionIds.collectAsStateWithLifecycle()
     val subSessionsByParent by agentViewModel.subSessionsByParent.collectAsStateWithLifecycle()
     val expandedPaths by agentViewModel.expandedPaths.collectAsStateWithLifecycle()
     val expandingPath by agentViewModel.expandingPath.collectAsStateWithLifecycle()
@@ -811,6 +820,7 @@ fun AppNavigation(
             },
             agentStates = agentStates,
             awaitingPermissionSessionIds = awaitingPermissionSessionIds,
+            awaitingQuestionSessionIds = awaitingQuestionSessionIds,
             subSessionsByParent = subSessionsByParent,
             browseState = browseState,
             fileTreePrefs = fileTreeDisplayPrefs,
@@ -1037,7 +1047,8 @@ fun AppNavigation(
                             // 插件「待升级」提示条数据源：进程级单例，启动时已在 onCreate 触发 refresh()。
                             val pendingPluginUpdates by pluginUpdateNotifier.pending.collectAsStateWithLifecycle()
                             CompositionLocalProvider(
-                                androidx.compose.ui.platform.LocalUriHandler provides fileUriHandler
+                                androidx.compose.ui.platform.LocalUriHandler provides fileUriHandler,
+                                LocalChatPanelOpacity provides (chatPanelOpacity / 100f).coerceIn(0.1f, 1f)
                             ) {
                                 AIChatPanel(
                                     viewModel = agentViewModel,
@@ -1105,6 +1116,9 @@ fun AppNavigation(
                                 editorPreview = paneEditorPreview,
                                 onClose = { paneKind = WorkbenchPaneKind.NONE },
                                 onOpenFile = { path -> openFile(path, 0, false) },
+                                onAskAgent = { prompt ->
+                                    agentViewModel.appendInputDraftCreatingSession(prompt)
+                                },
                                 // rc5 的平板右栏脏状态确认：主分支把调用重构进了 if (paneOpen)，
                                 // 故把该参数落在这里，而不是保留旧位置那份重复调用
                                 editorLeaveGuard = editorLeaveGuard,
@@ -1245,7 +1259,11 @@ fun AppNavigation(
                     viewModel = gitViewModel,
                     onNavigateToCredentials = { navController.navigate("credentials") },
                     onNavigateBack = { navController.popBackStack() },
-                    onOpenFile = { path -> openFile(path, 0, false) }
+                    onOpenFile = { path -> openFile(path, 0, false) },
+                    onAskAgent = { prompt ->
+                        agentViewModel.appendInputDraftCreatingSession(prompt)
+                        navController.popBackStack()
+                    }
                 )
             }
             composable("credentials") {

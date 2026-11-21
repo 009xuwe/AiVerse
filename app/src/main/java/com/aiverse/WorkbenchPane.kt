@@ -41,6 +41,7 @@ internal fun WorkbenchPaneContent(
     editorPreview: Boolean = false,
     onClose: () -> Unit,
     onOpenFile: ((String) -> Unit)? = null,
+    onAskAgent: (String) -> Unit = {},
     editorLeaveGuard: EditorLeaveGuard? = null,
     modifier: Modifier = Modifier
 ) {
@@ -82,6 +83,7 @@ internal fun WorkbenchPaneContent(
                         onNavigateToCredentials = { showCredentials = true },
                         onNavigateBack = onClose,
                         onOpenFile = onOpenFile,
+                        onAskAgent = onAskAgent,
                         embedded = true
                     )
                 }

@@ -41,9 +41,13 @@ import com.aiverse.feature.agent.domain.tool.container.TerminalSessionTool
 import com.aiverse.feature.agent.domain.tool.explorer.ListFilesTool
 import com.aiverse.feature.agent.domain.tool.explorer.SearchCodeTool
 import com.aiverse.feature.git.domain.tool.CreateGitHubIssueTool
+import com.aiverse.feature.git.domain.tool.CreateGitHubPullRequestTool
 import com.aiverse.feature.git.domain.tool.GetGitHubIssueTool
+import com.aiverse.feature.git.domain.tool.GetGitHubPullRequestTool
 import com.aiverse.feature.git.domain.tool.ListGitHubIssuesTool
+import com.aiverse.feature.git.domain.tool.ListGitHubPullRequestsTool
 import com.aiverse.feature.git.domain.tool.UpdateGitHubIssueTool
+import com.aiverse.feature.git.domain.tool.UpdateGitHubPullRequestTool
 import com.aiverse.feature.agent.domain.tool.remote.SshDownloadTool
 import com.aiverse.feature.agent.domain.tool.remote.SshExecTool
 import com.aiverse.feature.agent.domain.tool.remote.SshListTool
@@ -428,7 +432,11 @@ object AgentModule {
         listGitHubIssuesTool: ListGitHubIssuesTool,
         getGitHubIssueTool: GetGitHubIssueTool,
         createGitHubIssueTool: CreateGitHubIssueTool,
-        updateGitHubIssueTool: UpdateGitHubIssueTool
+        updateGitHubIssueTool: UpdateGitHubIssueTool,
+        listGitHubPullRequestsTool: ListGitHubPullRequestsTool,
+        getGitHubPullRequestTool: GetGitHubPullRequestTool,
+        createGitHubPullRequestTool: CreateGitHubPullRequestTool,
+        updateGitHubPullRequestTool: UpdateGitHubPullRequestTool
     ): ToolRegistry {
         return ToolRegistry().apply {
             register("readFile", readFileTool)
@@ -474,6 +482,10 @@ object AgentModule {
             register("getIssue", getGitHubIssueTool)
             register("createIssue", createGitHubIssueTool)
             register("updateIssue", updateGitHubIssueTool)
+            register("listPullRequests", listGitHubPullRequestsTool)
+            register("getPullRequest", getGitHubPullRequestTool)
+            register("createPullRequest", createGitHubPullRequestTool)
+            register("updatePullRequest", updateGitHubPullRequestTool)
         }
     }
 

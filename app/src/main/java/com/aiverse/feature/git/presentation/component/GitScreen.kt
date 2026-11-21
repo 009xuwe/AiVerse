@@ -91,6 +91,7 @@ import compose.icons.feathericons.Download
 import compose.icons.feathericons.Folder
 import compose.icons.feathericons.GitBranch
 import compose.icons.feathericons.GitCommit
+import compose.icons.feathericons.GitPullRequest
 import compose.icons.feathericons.Key
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.X
@@ -104,6 +105,7 @@ fun GitScreen(
     onNavigateToCredentials: () -> Unit,
     onNavigateBack: () -> Unit,
     onOpenFile: ((String) -> Unit)? = null,
+    onAskAgent: (String) -> Unit = {},
     embedded: Boolean = false
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -116,7 +118,7 @@ fun GitScreen(
     // 注意：issue 详情 / diff 是提前 return 的全屏页，此时本页 Scaffold 不在组合树里，
     // showSnackbar 会一直挂起，直到返回列表才弹出（表现为"回到上一页才提示"）。
     // 所以覆盖页打开期间不在这里消费，交由详情页自己的 Snackbar 就地展示。
-    val overlayOpen = state.diffVisible || state.issueDetailNumber != null
+    val overlayOpen = state.diffVisible || state.issueDetailNumber != null || state.pullDetailNumber != null
     LaunchedEffect(state.toast, overlayOpen) {
         if (overlayOpen) return@LaunchedEffect
         state.toast?.let {
@@ -137,18 +139,26 @@ fun GitScreen(
     }
 
     var showCommitDialog by remember { mutableStateOf(false) }
+    var showCreateIssue by remember { mutableStateOf(false) }
     var showPullConfirm by remember { mutableStateOf(false) }
+    // 新建 PR 默认目标分支：优先 main，其次 master，都没有时用 main。
+    val defaultBaseBranch = remember(state.branches) {
+        state.branches.firstOrNull { !it.remote && it.name == "main" }?.name
+            ?: state.branches.firstOrNull { !it.remote && it.name == "master" }?.name
+            ?: "main"
+    }
     var showMasterRenameConfirm by remember { mutableStateOf(false) }
     // 提交者列表页：非 null 时全屏覆盖，显示某提交的全部提交者。
     var contributors by remember { mutableStateOf<List<String>?>(null) }
     // 打开作者页前若正显示提交详情弹窗，保存其 hash 以便系统返回时恢复详情页。
     var savedDetailHash by remember { mutableStateOf<String?>(null) }
 
-    // 四个 tab 的滚动状态统一提升到页面层，聚合出「是否正在滚动」用于底部 tab 栏滚动弱化。
+    // 五个 tab 的滚动状态统一提升到页面层，聚合出「是否正在滚动」用于底部 tab 栏滚动弱化。
     val statusListState = rememberLazyListState()
     val branchesListState = rememberLazyListState()
     val logListState = rememberLazyListState()
     val issuesListState = rememberLazyListState()
+    val pullsListState = rememberLazyListState()
 
     val pagerState = rememberPagerState { GitTab.entries.size }
 
@@ -157,7 +167,8 @@ fun GitScreen(
             statusListState.isScrollInProgress ||
                 branchesListState.isScrollInProgress ||
                 logListState.isScrollInProgress ||
-                issuesListState.isScrollInProgress
+                issuesListState.isScrollInProgress ||
+                pullsListState.isScrollInProgress
         }
     }
 
@@ -168,6 +179,34 @@ fun GitScreen(
             filePath = state.diffPath,
             onBack = { viewModel.clearDiff() },
             onOpenInEditor = onOpenFile
+        )
+        return
+    }
+
+    // PR 详情：独立全屏页，覆盖整个面板，返回按钮回列表。
+    if (state.pullDetailNumber != null) {
+        GitPullRequestDetailPage(
+            pr = state.pullDetail,
+            loading = state.pullDetailLoading,
+            checks = state.pullDetailChecks,
+            checksLoading = state.pullDetailChecksLoading,
+            comments = state.pullComments,
+            commentsLoading = state.pullCommentsLoading,
+            commits = state.pullCommits,
+            commitsLoading = state.pullCommitsLoading,
+            files = state.pullFiles,
+            filesLoading = state.pullFilesLoading,
+            actionBusy = state.pullActionBusy,
+            onBack = viewModel::closePullRequestDetail,
+            onRetry = viewModel::refreshPullRequestDetail,
+            onAddComment = viewModel::addPullComment,
+            onDeleteComment = viewModel::deletePullComment,
+            onClosePull = viewModel::closePullRequest,
+            onReopenPull = viewModel::reopenPullRequest,
+            onMergePull = viewModel::mergePullRequest,
+            onAskAgent = onAskAgent,
+            toastMessage = state.toast,
+            onToastConsumed = viewModel::consumeToast
         )
         return
     }
@@ -194,6 +233,7 @@ fun GitScreen(
             onToggleLock = viewModel::toggleIssueLock,
             onLoadComments = { state.issueDetailNumber?.let(viewModel::loadIssueComments) },
             onLoadContributors = viewModel::loadContributors,
+            onAskAgent = onAskAgent,
             toastMessage = state.toast,
             onToastConsumed = viewModel::consumeToast
         )
@@ -376,7 +416,26 @@ fun GitScreen(
                             onSelectAll = viewModel::selectAllVisibleIssues,
                             onBulkClose = viewModel::bulkCloseSelected,
                             onBulkAddLabels = viewModel::bulkAddLabelsToSelected,
-                            onBulkAssign = viewModel::bulkSetAssigneesToSelected
+                            onBulkAssign = viewModel::bulkSetAssigneesToSelected,
+                            onCreateIssue = { showCreateIssue = true }
+                        )
+                        GitTab.PULLS -> PullRequestsTab(
+                            pulls = state.pulls,
+                            checks = state.pullChecks,
+                            loading = state.pullsLoading,
+                            loaded = state.pullsLoaded,
+                            filter = state.pullsFilter,
+                            isGitHub = state.isGitHub,
+                            hasToken = state.hasGitHubToken,
+                            error = state.pullsError,
+                            remoteUrl = state.remoteUrl,
+                            listState = pullsListState,
+                            sort = state.pullsSort,
+                            onLoad = viewModel::loadPulls,
+                            onFilterChange = viewModel::setPullsFilter,
+                            onOpenPull = viewModel::openPullRequestDetail,
+                            onSortChange = viewModel::setPullsSort,
+                            onCreatePull = viewModel::showCreatePull
                         )
                     }
                 }
@@ -392,7 +451,8 @@ fun GitScreen(
                     FloatingTabItem(FeatherIcons.Activity, stringResource(R.string.git_tab_status)),
                     FloatingTabItem(FeatherIcons.GitBranch, stringResource(R.string.git_tab_branches)),
                     FloatingTabItem(FeatherIcons.GitCommit, stringResource(R.string.git_tab_commits)),
-                    FloatingTabItem(FeatherIcons.AlertCircle, stringResource(R.string.git_tab_issues))
+                    FloatingTabItem(FeatherIcons.AlertCircle, stringResource(R.string.git_tab_issues)),
+                    FloatingTabItem(FeatherIcons.GitPullRequest, stringResource(R.string.git_tab_pulls))
                 ),
                 maskColor = settingsPageBackground(),
                 isScrolling = tabsScrolling,
@@ -400,6 +460,33 @@ fun GitScreen(
             )
         }
     }
+    }
+
+    if (showCreateIssue) {
+        GitIssueCreateSheet(
+            onDismiss = { showCreateIssue = false },
+            onCreate = { title, body, labels, assignees ->
+                showCreateIssue = false
+                viewModel.createIssue(title, body, labels, assignees)
+            }
+        )
+    }
+
+    if (state.createPullVisible) {
+        GitPullRequestCreateSheet(
+            busy = state.createPullBusy,
+            error = state.createPullError,
+            defaultHead = state.status?.branch.orEmpty(),
+            defaultBase = defaultBaseBranch,
+            canSubmitWorktree = state.hasRemote && state.hasIdentity && state.status?.hasChanges == true,
+            onDismiss = viewModel::hideCreatePull,
+            onCreateFromBranch = { title, body, head, base, draft ->
+                viewModel.createPull(title, body, head, base, draft)
+            },
+            onCreateFromWorktree = { title, body, newBranch, base, commitMessage, draft ->
+                viewModel.createPullFromWorktree(title, body, newBranch, base, commitMessage, draft)
+            }
+        )
     }
 
     if (state.repoPickerVisible) {

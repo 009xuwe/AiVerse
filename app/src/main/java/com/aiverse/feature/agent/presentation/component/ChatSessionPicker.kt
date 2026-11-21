@@ -25,7 +25,9 @@ import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
+import com.aiverse.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -53,6 +55,7 @@ fun ChatSessionRow(
     selected: Boolean,
     isExecuting: Boolean = false,
     awaitingPermission: Boolean = false,
+    awaitingQuestion: Boolean = false,
     pinned: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -112,7 +115,7 @@ fun ChatSessionRow(
                     .background(MaterialTheme.semanticColors.warning)
             )
             Spacer(Modifier.width(Spacing.md))
-        } else if (isExecuting) {
+        } else if (isExecuting && !awaitingQuestion) {
             val alpha by rememberChatInfiniteFloat(
                 initialValue = 1f,
                 targetValue = 0.25f,
@@ -137,6 +140,16 @@ fun ChatSessionRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        if (awaitingQuestion) {
+            // AI 正在提问：去绿色执行圆点，改为在标题右侧显示「提问中」文字，与行尾控件共存。
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = stringResource(R.string.session_awaiting_question),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+        }
         trailing?.invoke()
     }
 }

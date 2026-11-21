@@ -43,7 +43,7 @@ Beta builds are published to [aiverse-beta Releases](https://github.com/yhdmgf/a
 
 Open AiVerse and you will land on the chat home with a fresh empty conversation. Grant storage permission on first use — otherwise the AI cannot access files on your phone.
 
-On first launch, the app automatically starts an interactive spotlight onboarding guide, walking you through the complete flow: "Open sidebar → Enter Settings to configure a vendor and fetch models → Return home to select model → Send first message". In each step, you can tap the highlighted target or the "Next" button on the card to proceed, or tap "Skip" at any time. If you want to review the walkthrough later, you can restart it anytime via "Settings → Re-run onboarding".
+On first launch, AiVerse shows a 4/5-step setup wizard: terms, system permissions, appearance, an optional stable-build import for beta, and a Star page. After tapping "Get started", it asks whether to start the spotlight onboarding; choose "Start onboarding" to continue, or "Skip for now" and restart it later via "Settings → Re-run onboarding". The permission page only shows notifications and background at first; storage, app installs, overlay, and autostart are under "More permissions".
 
 ## 2. Configure an AI Vendor
 

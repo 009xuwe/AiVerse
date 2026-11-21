@@ -426,6 +426,21 @@ class AIAgentViewModel @Inject constructor(
     }
 
     /**
+     * 追加文本到当前会话草稿；当前没有会话时先建一个。
+     * 供 Git 页「让 AI 审查 PR / 修复 CI」等外部入口把结构化 prompt 交给聊天页。
+     */
+    fun appendInputDraftCreatingSession(text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            val id = _currentSessionId.value ?: ensureSession()
+            if (id.isBlank()) return@launch
+            val existing = _inputDrafts.value[id].orEmpty()
+            val next = if (existing.isBlank()) text else existing.trimEnd() + "\n\n" + text
+            updateInputDraft(next)
+        }
+    }
+
+    /**
      * 工具调用（分组头与单条工具卡片）的手动展开态：key = 分组 key（`toolgroup:<组内首条消息 id>`）
      * 或单条消息 id。
      *
@@ -3346,6 +3361,17 @@ class AIAgentViewModel @Inject constructor(
 
     /** /init —— 触发 agent 回合，分析代码库并生成/改进项目规则文件。 */
     override fun initProject(prompt: String) {
+        val sid = _currentSessionId.value ?: return
+        enqueueAgentRequest(
+            request = prompt,
+            projectRoot = _currentWorkspace.value,
+            targetSessionId = sid,
+            isAutoTrigger = true
+        )
+    }
+
+    /** /help —— 触发 agent 回合，智能检索官网文档并附来源回答。 */
+    override fun showHelp(prompt: String) {
         val sid = _currentSessionId.value ?: return
         enqueueAgentRequest(
             request = prompt,

@@ -100,6 +100,7 @@ internal fun GitIssueDetailPage(
     onToggleLock: (Boolean) -> Unit = {},
     onLoadComments: () -> Unit = {},
     onLoadContributors: () -> Unit = {},
+    onAskAgent: (String) -> Unit = {},
     toastMessage: String? = null,
     onToastConsumed: () -> Unit = {}
 ) {
@@ -169,7 +170,8 @@ internal fun GitIssueDetailPage(
                 onSetAssignees = onSetAssignees,
                 onToggleLock = onToggleLock,
                 onLoadComments = onLoadComments,
-                onLoadContributors = onLoadContributors
+                onLoadContributors = onLoadContributors,
+                onAskAgent = onAskAgent
             )
         }
     }
@@ -195,7 +197,8 @@ private fun IssueDetailContent(
     onSetAssignees: (List<String>) -> Unit,
     onToggleLock: (Boolean) -> Unit,
     onLoadComments: () -> Unit,
-    onLoadContributors: () -> Unit
+    onLoadContributors: () -> Unit,
+    onAskAgent: (String) -> Unit
 ) {
     val open = issue.state == "open"
 
@@ -296,6 +299,22 @@ private fun IssueDetailContent(
                 ) {
                     Text(stringResource(if (issue.locked) R.string.git_issue_action_unlock else R.string.git_issue_action_lock))
                 }
+            }
+        }
+        item {
+            val aiPrompt = stringResource(
+                R.string.git_issue_ai_prompt,
+                issue.number,
+                issue.title,
+                issue.userLogin
+            )
+            OutlinedButton(
+                onClick = { onAskAgent(aiPrompt) },
+                enabled = !actionBusy,
+                shape = RoundedCornerShape(Radius.pill),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.git_issue_ai_action))
             }
         }
         item {

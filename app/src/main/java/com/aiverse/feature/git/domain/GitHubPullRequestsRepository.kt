@@ -1,0 +1,326 @@
+package com.aiverse.feature.git.domain
+
+import com.aiverse.feature.credentials.domain.repository.CredentialRepository
+import com.aiverse.feature.git.domain.model.GitHubCheckRun
+import com.aiverse.feature.git.domain.model.GitHubCheckSummary
+import com.aiverse.feature.git.domain.model.GitHubMergeResult
+import com.aiverse.feature.git.domain.model.GitHubPullRequest
+import com.aiverse.feature.git.domain.model.GitHubPullRequestCommit
+import com.aiverse.feature.git.domain.model.GitHubPullRequestFile
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** GitHub PR 请求失败（网络、HTTP 状态码、解析、目标不合法）。 */
+class GitHubPullRequestsException(message: String) : Exception(message)
+
+/**
+ * 从 GitHub REST API 拉取当前仓库的 Pull Request 列表、详情与 CI 检查状态。
+ *
+ * 目标解析与 HTTP 执行复用 issue 仓库的 [resolveGitHubTarget] / [executeGitHubRequest]：
+ * 非 github.com remote 或未配置 token 时返回 [Result.failure]，不会静默失败。
+ */
+@Singleton
+class GitHubPullRequestsRepository @Inject constructor(
+    private val client: OkHttpClient,
+    private val credentialRepository: CredentialRepository,
+    private val gitRepository: GitRepository
+) {
+    private companion object {
+        const val API_BASE = "https://api.github.com/repos"
+        const val PER_PAGE = 100
+        /** CI 检查摘要截断长度：避免把整段日志塞进列表/工具结果。 */
+        const val MAX_SUMMARY_CHARS = 300
+        val VALID_STATES = setOf("open", "closed", "all")
+    }
+
+    private val gson = Gson()
+
+    /** 当前仓库的 PR 列表。[state] 取 open / closed / all，非法值按 open 处理。 */
+    suspend fun listPullRequests(state: String = "open"): Result<List<GitHubPullRequest>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val normalized = state.takeIf { it in VALID_STATES } ?: "open"
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls?state=$normalized&per_page=$PER_PAGE"
+                val body = execute(url, target.token)
+                val type = object : TypeToken<List<GitHubPullRequest>>() {}.type
+                Result.success(gson.fromJson<List<GitHubPullRequest>>(body, type) ?: emptyList())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** 单条 PR 详情。 */
+    suspend fun getPullRequest(number: Long): Result<GitHubPullRequest> =
+        withContext(Dispatchers.IO) {
+            try {
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls/$number"
+                val pull = gson.fromJson(execute(url, target.token), GitHubPullRequest::class.java)
+                    ?: throw GitHubPullRequestsException("Empty pull request response")
+                Result.success(pull)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * 某提交的 CI 汇总：优先读 check-runs；没有 check-runs 时回退旧版 commit status。
+     * [sha] 取 PR 的 head.sha。
+     */
+    suspend fun getChecks(sha: String): Result<GitHubCheckSummary> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (sha.isBlank()) return@withContext Result.success(GitHubCheckSummary.EMPTY)
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val repoBase = "$API_BASE/${target.owner}/${target.repo}"
+                val runsBody = execute("$repoBase/commits/$sha/check-runs?per_page=$PER_PAGE", target.token)
+                val runsResponse = gson.fromJson(runsBody, CheckRunsResponse::class.java)
+                    ?: CheckRunsResponse()
+                val runs = runsResponse.checkRuns.map { dto ->
+                    GitHubCheckRun(
+                        name = dto.name,
+                        status = dto.status,
+                        conclusion = dto.conclusion,
+                        htmlUrl = dto.htmlUrl,
+                        summary = listOfNotNull(dto.output?.title, dto.output?.summary)
+                            .filter { it.isNotBlank() }
+                            .joinToString("\n")
+                            .take(MAX_SUMMARY_CHARS)
+                            .takeIf { it.isNotBlank() }
+                    )
+                }
+                if (runs.isNotEmpty()) {
+                    return@withContext Result.success(summarize(runs))
+                }
+
+                val statusBody = execute("$repoBase/commits/$sha/status", target.token)
+                val statusResponse = gson.fromJson(statusBody, CombinedStatusResponse::class.java)
+                    ?: CombinedStatusResponse()
+                val converted = statusResponse.statuses.map { status ->
+                    when (status.state) {
+                        "success" -> GitHubCheckRun(
+                            name = status.context,
+                            status = "completed",
+                            conclusion = "success",
+                            htmlUrl = status.targetUrl,
+                            summary = status.description
+                        )
+                        "failure", "error" -> GitHubCheckRun(
+                            name = status.context,
+                            status = "completed",
+                            conclusion = "failure",
+                            htmlUrl = status.targetUrl,
+                            summary = status.description
+                        )
+                        else -> GitHubCheckRun(
+                            name = status.context,
+                            status = "pending",
+                            conclusion = null,
+                            htmlUrl = status.targetUrl,
+                            summary = status.description
+                        )
+                    }
+                }
+                Result.success(
+                    if (converted.isEmpty()) GitHubCheckSummary.EMPTY
+                    else summarize(converted, statusResponse.state.takeIf { it.isNotBlank() })
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** 创建 PR。head 为源分支（同仓库可直接写分支名，fork 用 owner:branch），base 为目标分支。 */
+    suspend fun createPullRequest(
+        title: String,
+        head: String,
+        base: String,
+        body: String? = null,
+        draft: Boolean = false
+    ): Result<GitHubPullRequest> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (title.isBlank()) throw GitHubPullRequestsException("title is blank")
+                if (head.isBlank() || base.isBlank()) throw GitHubPullRequestsException("head/base is blank")
+                if (head == base) throw GitHubPullRequestsException("head and base are the same")
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val payload = HashMap<String, Any>()
+                payload["title"] = title
+                payload["head"] = head
+                payload["base"] = base
+                if (!body.isNullOrBlank()) payload["body"] = body
+                if (draft) payload["draft"] = true
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls"
+                val response = execute(url, target.token, method = "POST", jsonBody = gson.toJson(payload))
+                val pull = gson.fromJson(response, GitHubPullRequest::class.java)
+                    ?: throw GitHubPullRequestsException("Empty pull request response")
+                Result.success(pull)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** 关闭（state=closed）或重开（state=open）PR。 */
+    suspend fun setPullRequestState(number: Long, state: String): Result<GitHubPullRequest> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (number <= 0) throw GitHubPullRequestsException("invalid pull request number")
+                val normalized = state.takeIf { it in setOf("open", "closed") }
+                    ?: throw GitHubPullRequestsException("invalid pull request state")
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls/$number"
+                val response = execute(
+                    url,
+                    target.token,
+                    method = "PATCH",
+                    jsonBody = gson.toJson(mapOf("state" to normalized))
+                )
+                val pull = gson.fromJson(response, GitHubPullRequest::class.java)
+                    ?: throw GitHubPullRequestsException("Empty pull request response")
+                Result.success(pull)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** 关闭 PR。 */
+    suspend fun closePullRequest(number: Long): Result<GitHubPullRequest> =
+        setPullRequestState(number, "closed")
+
+    /** 重开 PR。 */
+    suspend fun reopenPullRequest(number: Long): Result<GitHubPullRequest> =
+        setPullRequestState(number, "open")
+
+    /** 合并 PR。[method] 取 merge / squash / rebase，非法值按 merge。 */
+    suspend fun mergePullRequest(number: Long, method: String = "merge"): Result<GitHubMergeResult> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (number <= 0) throw GitHubPullRequestsException("invalid pull request number")
+                val normalized = method.takeIf { it in setOf("merge", "squash", "rebase") } ?: "merge"
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls/$number/merge"
+                val response = execute(
+                    url,
+                    target.token,
+                    method = "PUT",
+                    jsonBody = gson.toJson(mapOf("merge_method" to normalized))
+                )
+                val result = gson.fromJson(response, GitHubMergeResult::class.java)
+                    ?: throw GitHubPullRequestsException("Empty merge response")
+                Result.success(result)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** PR 的提交记录（最多 100 条）。 */
+    suspend fun listPullRequestCommits(number: Long): Result<List<GitHubPullRequestCommit>> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (number <= 0) throw GitHubPullRequestsException("invalid pull request number")
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls/$number/commits?per_page=$PER_PAGE"
+                val body = execute(url, target.token)
+                val type = object : TypeToken<List<GitHubPullRequestCommit>>() {}.type
+                Result.success(gson.fromJson<List<GitHubPullRequestCommit>>(body, type) ?: emptyList())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** PR 变更的文件列表（最多 100 条，不含 patch 正文）。 */
+    suspend fun listPullRequestFiles(number: Long): Result<List<GitHubPullRequestFile>> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (number <= 0) throw GitHubPullRequestsException("invalid pull request number")
+                val target = resolveTarget() ?: return@withContext errorResult()
+                val url = "$API_BASE/${target.owner}/${target.repo}/pulls/$number/files?per_page=$PER_PAGE"
+                val body = execute(url, target.token)
+                val type = object : TypeToken<List<GitHubPullRequestFile>>() {}.type
+                Result.success(gson.fromJson<List<GitHubPullRequestFile>>(body, type) ?: emptyList())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /** 当前仓库是否配置了 GitHub token（与 issue 仓库同源）。 */
+    suspend fun hasGitHubToken(): Boolean =
+        credentialRepository.findForHost("github.com")?.token?.isNotBlank() == true
+
+    private fun summarize(runs: List<GitHubCheckRun>, combinedState: String? = null): GitHubCheckSummary =
+        GitHubCheckSummary(
+            total = runs.size,
+            success = runs.count { it.outcome == "success" },
+            failure = runs.count { it.outcome == "failure" },
+            pending = runs.count { it.outcome == "pending" },
+            runs = runs,
+            combinedState = combinedState
+        )
+
+    private suspend fun resolveTarget(): GitHubTarget? =
+        resolveGitHubTarget(gitRepository, credentialRepository)
+
+    private fun execute(
+        url: String,
+        token: String,
+        method: String = "GET",
+        jsonBody: String? = null
+    ): String = executeGitHubRequest(client, url, token, method, jsonBody)
+
+    private fun errorResult(): Result<Nothing> = Result.failure(
+        GitHubPullRequestsException("GitHub pull requests unavailable: repository is not GitHub or token is missing")
+    )
+
+    private data class CheckRunsResponse(
+        @SerializedName("check_runs") val checkRuns: List<CheckRunDto> = emptyList()
+    )
+
+    private data class CheckRunDto(
+        val name: String = "",
+        val status: String = "",
+        val conclusion: String? = null,
+        @SerializedName("html_url") val htmlUrl: String = "",
+        val output: CheckOutputDto? = null
+    )
+
+    private data class CheckOutputDto(
+        val title: String? = null,
+        val summary: String? = null
+    )
+
+    private data class CombinedStatusResponse(
+        val state: String = "",
+        val statuses: List<StatusDto> = emptyList()
+    )
+
+    private data class StatusDto(
+        val context: String = "",
+        val state: String = "",
+        val description: String? = null,
+        @SerializedName("target_url") val targetUrl: String = ""
+    )
+}

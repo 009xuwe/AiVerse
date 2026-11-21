@@ -37,6 +37,7 @@ fun LaunchGate(
     themeSettings: ThemeSettingsRepository,
     betaHandoffRepository: BetaHandoffRepository,
     onExit: () -> Unit,
+    onFinished: (startOnboarding: Boolean) -> Unit = {},
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -86,10 +87,12 @@ fun LaunchGate(
             },
             onExit = onExit,
             onAgree = { scope.launch { agreementRepository.accept() } },
-            onFinish = {
+            onFinish = { startOnboarding ->
                 scope.launch {
                     agreementRepository.accept()
                     launchRepository.markCompleted()
+                    // 先让宿主记录用户的选择，再切到主界面，避免引导叠层闪现。
+                    onFinished(startOnboarding)
                     completed = true
                 }
             }

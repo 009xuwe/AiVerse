@@ -32,7 +32,14 @@ private fun stringList(element: kotlinx.serialization.json.JsonElement?): List<S
 private fun failure(e: Exception): ToolResult {
     if (e is CancellationException) throw e
     FileLogger.e(TAG, "GitHub issue 工具失败", e)
-    return ToolResult.Error(e.message ?: "GitHub issue 操作失败", "GITHUB_ISSUE_ERROR")
+    val message = e.message.orEmpty()
+    if (message.contains("token is missing", ignoreCase = true)) {
+        return ToolResult.Error(
+            "未配置 GitHub token：请让用户打开 Git 页右上角钥匙 → 凭据 → +，添加 github.com 的 token，然后重试。不要读取或猜测 token。",
+            "GITHUB_TOKEN_MISSING"
+        )
+    }
+    return ToolResult.Error(message.ifBlank { "GitHub issue 操作失败" }, "GITHUB_ISSUE_ERROR")
 }
 
 /**
@@ -76,13 +83,13 @@ class ListGitHubIssuesTool @Inject constructor(
 
 /**
  * 获取单条 GitHub issue 详情（只读，OPEN，自动放行）。
- * 参数：number = issue 编号（必填）。
+ * 参数：number = issue 编号（必填）；commentLimit = 评论条数上限（可选，默认 10，最大 100）。
  */
 class GetGitHubIssueTool @Inject constructor(
     private val repository: GitHubIssuesRepository
 ) : AgentTool() {
     override val name = "getIssue"
-    override val description = "获取当前 GitHub 仓库单条 issue 的详情，含正文与全部评论（只读）。返回 issue、comments（评论列表）、commentCount（评论数）。仅 GitHub 仓库且已配置 token 时可用。"
+    override val description = "获取当前 GitHub 仓库单条 issue 的详情，含正文与评论（只读）。默认返回前 10 条评论，可用 commentLimit 调整（最多 100）。issue 评论常包含用户的补充说明、复现细节和期望结果；处理 issue 前必须先阅读评论再动手。仅 GitHub 仓库且已配置 token 时可用。"
     override val permissionPolicy = ToolPermissionPolicy.AUTO_APPROVE
     override val capabilities = setOf(ToolCapability.NETWORK_READ)
 
@@ -92,26 +99,41 @@ class GetGitHubIssueTool @Inject constructor(
             type = ParameterType.INTEGER,
             description = "issue 编号（必填）。",
             required = true
+        ),
+        "commentLimit" to ToolParameter(
+            name = "commentLimit",
+            type = ParameterType.INTEGER,
+            description = "读取的评论条数上限（可选，默认 10，最大 100）。",
+            required = false
         )
     )
 
     override suspend fun execute(args: Map<String, kotlinx.serialization.json.JsonElement>): ToolResult {
         val number = args["number"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
             ?: return ToolResult.Error("缺少必需参数：number", "MISSING_NUMBER")
+        val rawLimit = args["commentLimit"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: DEFAULT_COMMENT_LIMIT
+        val limit = rawLimit.coerceIn(1, MAX_COMMENT_LIMIT)
         val result = repository.getIssue(number)
         return if (result.isSuccess) {
             val gson = Gson()
-            // 默认同时读取全部评论，避免 AI 需要额外调用才能看到评论区
+            // issue 评论常含补充说明：默认带前 10 条，避免模型每次都只看到正文。
             val commentsResult = repository.getComments(number)
             val comments = commentsResult.getOrDefault(emptyList())
+            val visible = comments.take(limit)
             ToolResult.Success(JsonObject(mapOf(
                 "issue" to Json.parseToJsonElement(gson.toJson(result.getOrThrow())),
                 "commentCount" to JsonPrimitive(comments.size),
-                "comments" to Json.parseToJsonElement(gson.toJson(comments))
+                "comments" to Json.parseToJsonElement(gson.toJson(visible)),
+                "commentsTruncated" to JsonPrimitive(comments.size > visible.size)
             )))
         } else {
             failure(result.exceptionOrNull() as? Exception ?: Exception("未知错误"))
         }
+    }
+
+    private companion object {
+        const val DEFAULT_COMMENT_LIMIT = 10
+        const val MAX_COMMENT_LIMIT = 100
     }
 }
 

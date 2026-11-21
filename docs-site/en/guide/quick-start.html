@@ -127,8 +127,8 @@ body{line-height:1.65}
 <ul><li><strong>Want stability? Use the stable build</strong>: see the <a href="https://aivapp.cn/download" target="_blank" rel="noreferrer">official download page</a> above.</li><li><strong>Want to try new features? Use the preview (rc) build</strong>: see the <code>rc</code> builds on <a href="https://github.com/yhdmgf/AiVerse/releases" target="_blank" rel="noreferrer">GitHub Releases</a>.</li><li><strong>Do not use the beta build for regular work</strong>: it is built on a daily schedule from the latest code on the server, to verify that the newest code works. Its version number differs from both stable and preview, it is not maintained or iterated normally, and it may be unstable or contain high-risk issues; App screens also show a <strong>Beta</strong> watermark, and it is excluded from in-app update checks.</li></ul>
 <p>::: tip Where the beta build comes from Beta builds are published to <a href="https://github.com/yhdmgf/aiverse-beta/releases" target="_blank" rel="noreferrer">aiverse-beta Releases</a>. If your commit has not been built on the schedule yet, use the <a href="https://aivapp.cn/trigger/" target="_blank" rel="noreferrer">beta trigger page</a> to trigger <code>Nightly Build</code> in one click (global rate limit: once per hour), or wait for the next scheduled run (00:00 / 06:00 / 12:00 / 18:00 Beijing time). :::</p>
 <h2 id="1-first-launch-onboarding-guide" tabindex="-1">1. First Launch &amp; Onboarding Guide <a class="header-anchor" href="#1-first-launch-onboarding-guide" aria-label="Permalink to &quot;1. First Launch &amp; Onboarding Guide&quot;">​</a></h2>
-<p>Open AiVerse and you will land on the chat home with a fresh empty conversation. Grant storage permission on first use — otherwise the AI cannot access files on your phone.</p>
-<p>On first launch, the app automatically starts an interactive spotlight onboarding guide, walking you through the complete flow: "Open sidebar → Enter Settings to configure a vendor and fetch models → Return home to select model → Send first message". In each step, you can tap the highlighted target or the "Next" button on the card to proceed, or tap "Skip" at any time. If you want to review the walkthrough later, you can restart it anytime via "Settings → Re-run onboarding".</p>
+<p>Open AiVerse and you will land on the chat home with a fresh empty conversation. Permissions are optional: notifications and background are on the first screen, while storage, app installs, overlay, and autostart are under "More permissions".</p>
+<p>On first launch, AiVerse shows a 4/5-step setup wizard: terms, system permissions, appearance, an optional stable-build import for beta, and a Star page. After tapping "Get started", it asks whether to start the spotlight onboarding; choose "Start onboarding" to continue, or "Skip for now" and restart it later via "Settings → Re-run onboarding".</p>
 <h2 id="2-configure-an-ai-vendor" tabindex="-1">2. Configure an AI Vendor <a class="header-anchor" href="#2-configure-an-ai-vendor" aria-label="Permalink to &quot;2. Configure an AI Vendor&quot;">​</a></h2>
 <p>AiVerse does not provide models itself; you need to connect a model service first.</p>
 <ol><li>Tap the menu button at the top-left of the home page to open the sidebar, then tap "Settings" at the bottom.</li><li>Go to "AI Config → AI Vendors" and tap the + at the top-right to create one.</li><li>Fill in four fields:</li></ol>
@@ -259,7 +259,7 @@ document.addEventListener('keydown',function(e){
 })();
 </script><script>
 (function(){
-  function goSearch(e){e.preventDefault();window.location.href='/search.html';}
+  function goSearch(e){e.preventDefault();window.location.href='/search.php';}
   document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.VPLocalSearch .button, .v-search-btn, .DocSearch-Button').forEach(function(b){b.addEventListener('click',goSearch);});
   });

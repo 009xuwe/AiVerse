@@ -49,6 +49,56 @@ internal fun parseGithubRepoUrl(url: String): Pair<String, String>? {
 /** GitHub issue 请求失败（网络、HTTP 状态码、解析、目标不合法）。 */
 class GitHubIssuesException(message: String) : Exception(message)
 
+/** 解析后的 GitHub 请求目标：owner/repo + token。 */
+internal data class GitHubTarget(val owner: String, val repo: String, val token: String)
+
+/** 解析当前 remote 为 GitHub 目标；非 GitHub 或无 token 时返回 null。 */
+internal suspend fun resolveGitHubTarget(
+    gitRepository: GitRepository,
+    credentialRepository: CredentialRepository
+): GitHubTarget? {
+    val pair = parseGithubRepoUrl(gitRepository.getRepoUrl()) ?: return null
+    val token = credentialRepository.findForHost("github.com")?.token?.takeIf { it.isNotBlank() }
+        ?: return null
+    return GitHubTarget(pair.first, pair.second, token)
+}
+
+/**
+ * 执行一次 GitHub API 请求。GET 无 body；POST/PATCH 带 [jsonBody]；PUT/DELETE 无 body（部分返回 204 空体）。
+ * 非 2xx 时抛 [GitHubIssuesException]（含状态码与响应体）。
+ *
+ * 供 issue 与 PR 两个仓库共用，保证认证头、Accept 与错误格式一致。
+ */
+internal fun executeGitHubRequest(
+    client: OkHttpClient,
+    url: String,
+    token: String,
+    method: String = "GET",
+    jsonBody: String? = null
+): String {
+    val builder = Request.Builder()
+        .url(url)
+        .header("Accept", "application/vnd.github+json")
+        .header("Authorization", "Bearer $token")
+    when (method) {
+        "GET" -> builder.get()
+        "DELETE" -> builder.delete()
+        else -> {
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val body: RequestBody = jsonBody?.toRequestBody(mediaType)
+                ?: "{}".toRequestBody(mediaType)
+            builder.method(method, body)
+        }
+    }
+    client.newCall(builder.build()).execute().use { resp ->
+        if (!resp.isSuccessful) {
+            val errBody = runCatching { resp.body?.string() }.getOrNull()
+            throw GitHubIssuesException("HTTP ${resp.code}${errBody?.let { ": $it" } ?: ""}")
+        }
+        return resp.body?.string().orEmpty()
+    }
+}
+
 /**
  * 从 GitHub REST API 拉取当前仓库的 issue 列表、详情，并执行 issue 写操作。
  *
@@ -67,8 +117,6 @@ class GitHubIssuesRepository @Inject constructor(
         const val GITHUB_HOST = "github.com"
         const val API_BASE = "https://api.github.com/repos"
         const val PER_PAGE = 100
-        const val JSON_MEDIA = "application/vnd.github+json"
-        const val CONTENT_TYPE = "application/json; charset=utf-8"
     }
 
     private val gson = Gson()
@@ -388,48 +436,18 @@ class GitHubIssuesRepository @Inject constructor(
         credentialRepository.findForHost(GITHUB_HOST)?.token?.isNotBlank() == true
 
     /** 解析当前 remote 为 (owner, repo, token)；非 GitHub 或无 token 返回 null。 */
-    private suspend fun resolveTarget(): Triple<String, String, String>? {
-        val url = gitRepository.getRepoUrl()
-        val pair = parseGithubRepoUrl(url) ?: return null
-        val token = credentialRepository.findForHost(GITHUB_HOST)?.token?.takeIf { it.isNotBlank() }
-            ?: return null
-        return Triple(pair.first, pair.second, token)
-    }
+    private suspend fun resolveTarget(): Triple<String, String, String>? =
+        resolveGitHubTarget(gitRepository, credentialRepository)?.let { Triple(it.owner, it.repo, it.token) }
 
     /** 统一失败结果（非 GitHub / 无 token 时），错误信息仅用于日志与通用失败态，不直接展示给用户。 */
     private fun errorResult(): Result<Nothing> =
         Result.failure(GitHubIssuesException("GitHub issues unavailable: repository is not GitHub or token is missing"))
 
-    /**
-     * 执行一次 GitHub API 请求。GET 无 body；POST/PATCH 带 [jsonBody]；PUT/DELETE 无 body（部分返回 204 空体）。
-     * 非 2xx 时抛 [GitHubIssuesException]（含状态码与响应体）。
-     */
+    /** 执行一次 GitHub API 请求，错误统一为 [GitHubIssuesException]。 */
     private fun execute(
         url: String,
         token: String,
         method: String = "GET",
         jsonBody: String? = null
-    ): String {
-        val builder = Request.Builder()
-            .url(url)
-            .header("Accept", JSON_MEDIA)
-            .header("Authorization", "Bearer $token")
-        when (method) {
-            "GET" -> builder.get()
-            "DELETE" -> builder.delete()
-            else -> {
-                val mediaType = CONTENT_TYPE.toMediaType()
-                val body: RequestBody = jsonBody?.toRequestBody(mediaType)
-                    ?: "{}".toRequestBody(mediaType)
-                builder.method(method, body)
-            }
-        }
-        client.newCall(builder.build()).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                val errBody = runCatching { resp.body?.string() }.getOrNull()
-                throw GitHubIssuesException("HTTP ${resp.code}${errBody?.let { ": $it" } ?: ""}")
-            }
-            return resp.body?.string().orEmpty()
-        }
-    }
+    ): String = executeGitHubRequest(client, url, token, method, jsonBody)
 }
