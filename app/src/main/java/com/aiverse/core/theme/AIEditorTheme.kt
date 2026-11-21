@@ -61,6 +61,9 @@ val LocalUserBubbleOpacity = staticCompositionLocalOf { 100 }
 /** AI 回复气泡底色透明度（10~100%，默认 100）。 */
 val LocalAssistantBubbleOpacity = staticCompositionLocalOf { 100 }
 
+/** 聊天外壳透明度系数（0.1~1.0，默认 1.0）：顶栏/输入框/悬浮面板的 alpha 统一乘这个系数。 */
+val LocalChatPanelOpacity = staticCompositionLocalOf { 1f }
+
 object Radius {
     val xs = 4.dp
     val sm = 8.dp
@@ -322,7 +325,15 @@ val LocalSurfaceGlassStyle = staticCompositionLocalOf { false }
 /** 玻璃档返回 [glass]，其它档回退 [fallback]（改动前的原实色）。用于表面背景取色，磨砂只门控在玻璃档。 */
 @Composable
 fun glassOr(glass: Color, fallback: Color): Color =
-    if (LocalSurfaceGlassStyle.current) glass else fallback
+    if (LocalSurfaceGlassStyle.current) {
+        val factor = LocalChatPanelOpacity.current.coerceIn(0.05f, 1f)
+        glass.copy(alpha = (glass.alpha * factor).coerceIn(0f, 1f))
+    } else fallback
+
+/** 聊天悬浮面板底色：默认不透明；外壳系数调低时透出背景，保留 35% 可读性下限。 */
+@Composable
+fun chatPanelSurface(): Color =
+    MaterialTheme.colorScheme.surface.copy(alpha = LocalChatPanelOpacity.current.coerceAtLeast(0.35f))
 
 /** 玻璃档返回描边色，其它档返回透明（等效无边框，回到改动前的无描边状态）。 */
 @Composable

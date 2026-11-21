@@ -119,6 +119,11 @@ class AppearanceSettingsRepository @Inject constructor(
         (prefs[ASSISTANT_BUBBLE_OPACITY_KEY] ?: DEFAULT_BUBBLE_OPACITY).coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
     }
 
+    /** 聊天外壳（顶栏/输入框/悬浮面板）透明度系数（10~100%），默认 100。 */
+    val chatPanelOpacityFlow: Flow<Int> = context.appearanceDataStore.data.map { prefs ->
+        (prefs[CHAT_PANEL_OPACITY_KEY] ?: DEFAULT_PANEL_OPACITY).coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
+    }
+
     /**
      * 界面字体路径（App 私有目录文件绝对路径；空串=系统默认）。
      * 读取时校验文件仍存在，导入字体被删后自动回落系统默认。
@@ -220,6 +225,11 @@ class AppearanceSettingsRepository @Inject constructor(
         context.appearanceDataStore.edit { it[ASSISTANT_BUBBLE_OPACITY_KEY] = opacity.coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY) }
     }
 
+    /** 设置聊天外壳透明度系数（10~100%）。 */
+    suspend fun setChatPanelOpacity(opacity: Int) {
+        context.appearanceDataStore.edit { it[CHAT_PANEL_OPACITY_KEY] = opacity.coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY) }
+    }
+
     /** 设置界面字体路径；空串=系统默认。 */
     suspend fun setUiFontPath(path: String) {
         context.appearanceDataStore.edit { it[UI_FONT_PATH_KEY] = path }
@@ -254,6 +264,9 @@ class AppearanceSettingsRepository @Inject constructor(
 
     /** 备份快照：当前 AI 气泡透明度（%）。 */
     suspend fun assistantBubbleOpacitySnapshot(): Int = assistantBubbleOpacityFlow.first()
+
+    /** 备份快照：聊天外壳透明度系数（%）。 */
+    suspend fun chatPanelOpacitySnapshot(): Int = chatPanelOpacityFlow.first()
 
     /** 备份快照：当前界面字体路径（空串=系统默认）。 */
     suspend fun uiFontPathSnapshot(): String = uiFontPathFlow.first()
@@ -290,6 +303,14 @@ class AppearanceSettingsRepository @Inject constructor(
         }
     }
 
+    /** 从备份还原聊天外壳透明度系数；null 时清除该键回退默认。 */
+    suspend fun restoreChatPanelOpacity(opacity: Int?) {
+        context.appearanceDataStore.edit {
+            if (opacity == null) it.remove(CHAT_PANEL_OPACITY_KEY)
+            else it[CHAT_PANEL_OPACITY_KEY] = opacity.coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
+        }
+    }
+
     /** 清空文件树显示偏好，回退默认（与历史行为一致）。 */
     suspend fun restoreFileTreeDisplay() {
         context.appearanceDataStore.edit {
@@ -322,6 +343,7 @@ class AppearanceSettingsRepository @Inject constructor(
         private val CODE_LINE_NUMBER_KEY = booleanPreferencesKey("code_show_line_number")
         private val USER_BUBBLE_OPACITY_KEY = intPreferencesKey("user_bubble_opacity")
         private val ASSISTANT_BUBBLE_OPACITY_KEY = intPreferencesKey("assistant_bubble_opacity")
+        private val CHAT_PANEL_OPACITY_KEY = intPreferencesKey("chat_panel_opacity")
         private val CARD_CORNER_KEY = intPreferencesKey("card_corner")
         private val BUTTON_CORNER_KEY = intPreferencesKey("button_corner")
         private val FIELD_CORNER_KEY = intPreferencesKey("field_corner")
@@ -354,6 +376,7 @@ class AppearanceSettingsRepository @Inject constructor(
         const val MIN_BUBBLE_OPACITY = 10
         const val MAX_BUBBLE_OPACITY = 100
         const val DEFAULT_BUBBLE_OPACITY = 100
+        const val DEFAULT_PANEL_OPACITY = 100
 
         /** 独立圆角（dp）：卡片/按钮/输入框/气泡/图片 5 项可分别调，默认值=现状。 */
         const val MIN_CORNER = 0

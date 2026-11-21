@@ -132,6 +132,7 @@ body{line-height:1.65}
 <h2 id="聊天气泡样式" tabindex="-1">聊天气泡样式 <a class="header-anchor" href="#聊天气泡样式" aria-label="Permalink to &quot;聊天气泡样式&quot;">​</a></h2>
 <p>「外观 → 聊天气泡」分别设置<strong>用户消息</strong>与 <strong>AI 回复</strong>两侧的气泡样式（<strong>1.0.0 起</strong>拆分为独立配置，互不影响），选择界面把收发两侧并排展示，方便对齐预览。两侧均含：经典白描边、柔和投影、极简纯白、暗夜模式、漫画风格、清新绿、心动时刻、原版；<strong>AI 回复一侧另有「无气泡」</strong>（<strong>1.0.0 起</strong>，去掉气泡容器，AI 回复直接铺在页面上）。选择任一侧样式即时生效并记住，默认经典白描边。</p>
 <p><strong>气泡透明度</strong>（<strong>1.0.3 起</strong>）：用户气泡与 AI 气泡各有独立滑块，可调 10% 到 100%，默认 100%（完全不透明）。拖动时下方常驻一块预览，按当前所选样式与透明度实时呈现，松手才落盘。气泡透明度会随主题包一起导出/导入。</p>
+<p><strong>聊天面板透明系数</strong>：顶栏、输入框、底部蒙版与悬浮面板共用这一系数，可调 10% 到 100%，默认 100%。100% 时与调整前完全一致；调低后它们按各自原有比例一起变透，透出背景图，文字与描边保持清晰。权限确认、计划审批、追问与目标面板保留 35% 的可读性下限。该设置与气泡透明度独立，并随备份导出/导入。</p>
 <h2 id="输入框快捷栏" tabindex="-1">输入框快捷栏 <a class="header-anchor" href="#输入框快捷栏" aria-label="Permalink to &quot;输入框快捷栏&quot;">​</a></h2>
 <p>「外观 → 输入框快捷栏」控制输入框上方快捷栏各按钮的显示与隐藏（<strong>模式切换为必留项</strong>，不在此列），按钮顺序与设置页一致：</p>
 <ul><li><strong>切换模型快捷按钮</strong></li><li><strong>思考强度快捷按钮</strong></li><li><strong>联网搜索开关</strong></li><li><strong>切换文件夹快捷按钮</strong></li><li><strong>MCP 快捷按钮</strong></li><li><strong>优化输入快捷按钮</strong>（<strong>1.0.3 起</strong>，见下）</li><li><strong>加号快捷按钮</strong>（<strong>1.0.3 起</strong>，上传附件入口）</li></ul>
@@ -161,7 +162,7 @@ body{line-height:1.65}
 <h2 id="主题包" tabindex="-1">主题包 <a class="header-anchor" href="#主题包" aria-label="Permalink to &quot;主题包&quot;">​</a></h2>
 <p>「外观 → 主题包」（<strong>1.0.3 起</strong>）把整套外观设置打包导出，或从文件导入一键套用：</p>
 <ul><li><strong>导出主题包</strong>：把当前外观设置打包为 JSON，可分享或备份。</li><li><strong>导入主题包</strong>：从文件读取 JSON 并一键套用，套用失败会提示「主题包可能无效」。</li></ul>
-<p>覆盖明暗模式、配色方案、莫奈取色、彩色图标、双侧气泡样式、四档字号、界面密度、代码显示、双侧气泡透明度；<strong>不含自定义背景图</strong>（背景图单独走备份）。</p>
+<p>覆盖明暗模式、配色方案、莫奈取色、彩色图标、双侧气泡样式、四档字号、界面密度、代码显示、双侧气泡透明度、聊天面板透明系数；<strong>不含自定义背景图</strong>（背景图单独走备份）。</p>
 <h2 id="语言" tabindex="-1">语言 <a class="header-anchor" href="#语言" aria-label="Permalink to &quot;语言&quot;">​</a></h2>
 <p>可以跟随系统语言，也可以直接指定一种已支持的语言。</p>
 <h2 id="终端外观" tabindex="-1">终端外观 <a class="header-anchor" href="#终端外观" aria-label="Permalink to &quot;终端外观&quot;">​</a></h2>
@@ -276,7 +277,7 @@ document.addEventListener('keydown',function(e){
 })();
 </script><script>
 (function(){
-  function goSearch(e){e.preventDefault();window.location.href='/search.html';}
+  function goSearch(e){e.preventDefault();window.location.href='/search.php';}
   document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.VPLocalSearch .button, .v-search-btn, .DocSearch-Button').forEach(function(b){b.addEventListener('click',goSearch);});
   });

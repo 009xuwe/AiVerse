@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.aiverse.core.theme.Radius
 import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.Spacing
+import com.aiverse.core.theme.chatPanelSurface
 import com.aiverse.feature.agent.domain.tool.question.PendingUserQuestion
 import com.aiverse.feature.agent.domain.tool.question.QuestionItem
 import com.aiverse.feature.agent.domain.tool.question.SingleAnswer
@@ -114,7 +115,7 @@ fun AskUserQuestionPanel(
             // 内嵌于消息列表（列表 contentPadding 已提供水平留白），此处仅保留垂直间距，
             // 避免与列表 padding 叠加导致面板比消息气泡/输入框窄。
             .padding(vertical = Spacing.xs),
-        color = MaterialTheme.colorScheme.surface,
+        color = chatPanelSurface(),
         shape = RoundedCornerShape(LocalUIDensityTokens.current.cardCorner),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {

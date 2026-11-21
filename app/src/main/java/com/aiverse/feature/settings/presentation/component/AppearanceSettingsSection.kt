@@ -135,12 +135,14 @@ internal fun AppearanceSettingsSection(
     codeShowLineNumber: Boolean,
     userBubbleOpacity: Int,
     assistantBubbleOpacity: Int,
+    chatPanelOpacity: Int,
     onSetCodeFontSizeSp: (Int) -> Unit,
     onSetCodeWrapEnabled: (Boolean) -> Unit,
     onSetCodeAutoFoldEnabled: (Boolean) -> Unit,
     onSetCodeShowLineNumber: (Boolean) -> Unit,
     onSetUserBubbleOpacity: (Int) -> Unit,
-    onSetAssistantBubbleOpacity: (Int) -> Unit
+    onSetAssistantBubbleOpacity: (Int) -> Unit,
+    onSetChatPanelOpacity: (Int) -> Unit
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -244,6 +246,13 @@ internal fun AppearanceSettingsSection(
                 style = assistantBubbleStyle,
                 value = assistantBubbleOpacity,
                 onSet = onSetAssistantBubbleOpacity
+            )
+            SettingsDivider()
+            PanelOpacityRow(
+                title = stringResource(R.string.settings_appearance_chat_panel_opacity),
+                subtitle = stringResource(R.string.settings_appearance_chat_panel_opacity_desc),
+                value = chatPanelOpacity,
+                onSet = onSetChatPanelOpacity
             )
             SettingsDivider()
             SettingsRow(
@@ -566,6 +575,49 @@ private fun ScaleSliderRow(
             onValueChange = { local = it },
             onValueChangeFinished = { onSet(local) },
             valueRange = 0.85f..1.30f
+        )
+    }
+}
+
+/**
+ * 聊天外壳透明度滑块行：只调顶栏/输入框/悬浮面板的 alpha，不显示气泡预览。
+ */
+@Composable
+private fun PanelOpacityRow(
+    title: String,
+    subtitle: String,
+    value: Int,
+    onSet: (Int) -> Unit
+) {
+    var local by remember(value) { mutableStateOf(value) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${local}%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.semanticColors.subtleText
+            )
+        }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.semanticColors.subtleText,
+            modifier = Modifier.padding(top = Spacing.xs)
+        )
+        Slider(
+            value = local.toFloat(),
+            onValueChange = { local = it.roundToInt() },
+            onValueChangeFinished = { onSet(local) },
+            valueRange = AppearanceFontRanges.OPACITY_MIN.toFloat()..AppearanceFontRanges.OPACITY_MAX.toFloat()
         )
     }
 }

@@ -432,6 +432,7 @@ class BackupManagerImpl @Inject constructor(
         codeShowLineNumber = if (options.appSettings) appearanceSettingsRepository.codeShowLineNumberSnapshot() else true,
         userBubbleOpacity = if (options.appSettings) appearanceSettingsRepository.userBubbleOpacitySnapshot() else 100,
         assistantBubbleOpacity = if (options.appSettings) appearanceSettingsRepository.assistantBubbleOpacitySnapshot() else 100,
+        chatPanelOpacity = if (options.appSettings) appearanceSettingsRepository.chatPanelOpacitySnapshot() else 100,
         keepaliveEnabled = if (options.appSettings) keepaliveSettingsRepository.snapshot() else false,
         liveNotificationEnabled = if (options.appSettings) liveNotificationSettingsRepository.snapshot() else false,
         approvalNotificationEnabled = if (options.appSettings) approvalNotificationSettingsRepository.snapshot() else false,
@@ -1035,6 +1036,7 @@ class BackupManagerImpl @Inject constructor(
                 meta.userBubbleOpacity,
                 meta.assistantBubbleOpacity
             )
+            appearanceSettingsRepository.restoreChatPanelOpacity(meta.chatPanelOpacity)
             appearanceSettingsRepository.restoreFontSizes(
                 meta.chatFontSizeSp,
                 meta.inputFontSizeSp,

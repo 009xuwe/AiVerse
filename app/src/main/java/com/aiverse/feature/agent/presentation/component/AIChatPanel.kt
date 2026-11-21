@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aiverse.R
 import com.aiverse.core.theme.LocalUIDensityTokens
+import com.aiverse.core.theme.LocalChatPanelOpacity
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.semanticColors
 import com.aiverse.core.tts.LocalTtsController
@@ -1941,7 +1942,7 @@ fun AIChatPanel(
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                headerScrimColor.copy(alpha = 0.98f),
+                                headerScrimColor.copy(alpha = 0.98f * LocalChatPanelOpacity.current),
                                 headerScrimColor.copy(alpha = 0f)
                             ),
                             startY = 0f,

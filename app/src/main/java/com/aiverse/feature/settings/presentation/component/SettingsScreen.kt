@@ -362,6 +362,7 @@ fun SettingsScreen(
     val codeShowLineNumber by viewModel.codeShowLineNumber.collectAsStateWithLifecycle()
     val userBubbleOpacity by viewModel.userBubbleOpacity.collectAsStateWithLifecycle()
     val assistantBubbleOpacity by viewModel.assistantBubbleOpacity.collectAsStateWithLifecycle()
+    val chatPanelOpacity by viewModel.chatPanelOpacity.collectAsStateWithLifecycle()
     val inputBarPrefs by viewModel.inputBarPrefs.collectAsStateWithLifecycle()
     val defaultSkillInstallScope by viewModel.defaultSkillInstallScope.collectAsStateWithLifecycle()
     val languageTag by viewModel.languageTag.collectAsStateWithLifecycle()
@@ -1396,6 +1397,7 @@ fun SettingsScreen(
                     codeShowLineNumber = codeShowLineNumber,
                     userBubbleOpacity = userBubbleOpacity,
                     assistantBubbleOpacity = assistantBubbleOpacity,
+                    chatPanelOpacity = chatPanelOpacity,
                     onSetFileNameDisplay = { viewModel.setFileNameDisplay(it) },
                     onSetShowHiddenFiles = { viewModel.setShowHiddenFiles(it) },
                     onSetFileIndentDensity = { viewModel.setFileIndentDensity(it) },
@@ -1417,6 +1419,7 @@ fun SettingsScreen(
                     onSetCodeShowLineNumber = { viewModel.setCodeShowLineNumber(it) },
                     onSetUserBubbleOpacity = { viewModel.setUserBubbleOpacity(it) },
                     onSetAssistantBubbleOpacity = { viewModel.setAssistantBubbleOpacity(it) },
+                    onSetChatPanelOpacity = { viewModel.setChatPanelOpacity(it) },
                     onRestoreDefaults = { viewModel.restoreAppearanceDefaults() },
                     onExportRequest = { exportRequest++ },
                     exportedThemeJson = exportedThemeJson,

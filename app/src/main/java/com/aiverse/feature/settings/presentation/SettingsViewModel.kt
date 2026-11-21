@@ -843,6 +843,10 @@ class SettingsViewModel @Inject constructor(
     private val _assistantBubbleOpacity = MutableStateFlow(AppearanceSettingsRepository.DEFAULT_BUBBLE_OPACITY)
     val assistantBubbleOpacity: StateFlow<Int> = _assistantBubbleOpacity.asStateFlow()
 
+    /** 聊天外壳（顶栏/输入框/悬浮面板）透明度系数（10~100%），默认 100。 */
+    private val _chatPanelOpacity = MutableStateFlow(AppearanceSettingsRepository.DEFAULT_PANEL_OPACITY)
+    val chatPanelOpacity: StateFlow<Int> = _chatPanelOpacity.asStateFlow()
+
     /** 三档字号落盘的节流 job（滑块拖动防积压），见 [setChatFontSizeSp] 等。 */
     private var fontWriteJob: Job? = null
 
@@ -1459,6 +1463,12 @@ class SettingsViewModel @Inject constructor(
             launch {
                 appearanceSettingsRepository.assistantBubbleOpacityFlow.collectLatest {
                     _assistantBubbleOpacity.value = it
+                }
+            }
+
+            launch {
+                appearanceSettingsRepository.chatPanelOpacityFlow.collectLatest {
+                    _chatPanelOpacity.value = it
                 }
             }
 
@@ -2984,12 +2994,22 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** 设置聊天外壳透明度系数（10~100%）。 */
+    fun setChatPanelOpacity(opacity: Int) {
+        bubbleOpacityWriteJob?.cancel()
+        bubbleOpacityWriteJob = viewModelScope.launch {
+            delay(BACKGROUND_ALPHA_WRITE_DEBOUNCE_MS)
+            appearanceSettingsRepository.setChatPanelOpacity(opacity)
+        }
+    }
+
     /** 恢复外观为默认值（清空三档字号、密度档、界面字体、代码显示、气泡透明度与文件树显示偏好，回到仓库默认）。 */
     fun restoreAppearanceDefaults() {
         viewModelScope.launch {
             appearanceSettingsRepository.restoreFontSizes(null, null, null, null)
             appearanceSettingsRepository.restoreUiFontPath(null)
             appearanceSettingsRepository.restoreCodeDisplay(null, null, null, null, null, null)
+            appearanceSettingsRepository.restoreChatPanelOpacity(null)
             appearanceSettingsRepository.restoreFileTreeDisplay()
         }
     }

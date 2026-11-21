@@ -101,7 +101,8 @@ import com.aiverse.core.theme.LocalInputFontSizeSp
 import com.aiverse.core.theme.LocalUIDensityTokens
 import com.aiverse.core.theme.glassBorderOr
 import com.aiverse.core.theme.glassOr
-import com.aiverse.core.theme.glassOr
+import com.aiverse.core.theme.LocalChatPanelOpacity
+import com.aiverse.core.theme.chatPanelSurface
 import com.aiverse.core.ui.rememberImeBottomInset
 import com.aiverse.core.ui.PressableSurface
 import com.aiverse.feature.onboarding.domain.OnboardingStep
@@ -330,6 +331,7 @@ internal fun ChatInputBar(
         // 渐变终点固定在蒙版可视高度内：若跟随整个 Box（含 imeInset 被键盘拉长的部分），
         // 键盘弹起时可见区域只占渐变前段，alpha 被摊薄到几乎透明——看起来像没有蒙版。
         val maskGradientEndY = with(LocalDensity.current) { inputBarMaskHeight.toPx() }
+        val panelFactor = LocalChatPanelOpacity.current
         BoxWithConstraints(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -352,9 +354,9 @@ internal fun ChatInputBar(
                                     MaterialTheme.colorScheme.surface.copy(alpha = 0f)
                                 },
                                 if (backgroundEnabled) {
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.8f)
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.8f * panelFactor)
                                 } else {
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.98f * panelFactor)
                                 }
                             ),
                             startY = 0f,
@@ -1293,7 +1295,7 @@ internal fun ToolPermissionPanel(
             // 避免与列表 padding 叠加导致面板比消息气泡/输入框窄。
             .padding(vertical = Spacing.xs)
             .graphicsLayer { alpha = panelAlpha },
-        color = MaterialTheme.colorScheme.surface,
+        color = chatPanelSurface(),
         shape = RoundedCornerShape(Radius.md),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
@@ -1600,7 +1602,7 @@ internal fun PlanApprovalPanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-        color = MaterialTheme.colorScheme.surface,
+        color = chatPanelSurface(),
         shape = RoundedCornerShape(Radius.md),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
@@ -1715,7 +1717,7 @@ private fun GoalBannerRow(
             .fillMaxWidth()
             .padding(bottom = Spacing.sm),
         shape = RoundedCornerShape(Radius.lg),
-        color = MaterialTheme.colorScheme.surface,
+        color = chatPanelSurface(),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
