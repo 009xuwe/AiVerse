@@ -51,3 +51,9 @@ site/docs-site/** linguist-vendored
 # 压缩后的前端资产也忽略
 *.min.js   linguist-vendored
 *.min.css  linguist-vendored
+
+# 前端资源不计入语言统计
+*.js       linguist-detectable=false
+*.css      linguist-detectable=false
+*.vue      linguist-detectable=false
+*.html     linguist-detectable=false
