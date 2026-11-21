@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -156,6 +158,66 @@ internal fun PluginChatPageHost(
         modifier = modifier,
         context = { PluginEntryContext(sessionId = sessionId) }
     )
+}
+
+/**
+ * 编辑器选中文本后的浮动插件菜单（editor.selection.menu）：只接受动作入口。
+ * 悬浮在编辑区上方，卡片 / 图标样式与空态建议区保持同一套圆角与底色。
+ */
+@Composable
+internal fun PluginEditorSelectionBar(
+    entries: List<PluginUiEntry>,
+    languageTag: String,
+    onRunAction: (PluginUiEntry) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (entries.isEmpty()) return
+    val t = LocalUIDensityTokens.current
+    Surface(
+        shape = RoundedCornerShape(t.cardCorner),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+        ) {
+            Text(
+                text = stringResource(R.string.plugins_slot_welcome_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.xs)
+            )
+            entries.forEach { entry ->
+                PressableSurface(
+                    onClick = { onRunAction(entry) },
+                    shape = RoundedCornerShape(t.cardCorner),
+                    color = MaterialTheme.colorScheme.surface,
+                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        Icon(
+                            imageVector = pluginPageIcon(entry.icon),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(t.scale(20))
+                        )
+                        Text(
+                            text = entry.title.resolve(languageTag),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** 动作入口声明 confirm=true 时的确认框。 */

@@ -42,7 +42,9 @@ fun PluginPageHost(
             },
             modifier = Modifier.fillMaxSize(),
             applySystemBarInsets = applySystemBarInsets,
-            entryContext = context
+            entryContext = context,
+            workspaceFiles = pluginsViewModel.workspaceFiles,
+            fileAccess = pluginsViewModel.fileAccess
         )
     }
 }

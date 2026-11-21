@@ -1,8 +1,13 @@
 package com.aiverse.feature.plugins.presentation
 
+import android.net.Uri
 import android.view.ContextThemeWrapper
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +29,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,7 +54,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aiverse.R
 import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.semanticColors
+import com.aiverse.core.util.FileLogger
+import com.aiverse.feature.agent.presentation.component.copyUriToWorkspace
 import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.workspace.domain.FileAccessProvider
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -71,7 +81,9 @@ fun PluginWebPanelScreen(
     modifier: Modifier = Modifier,
     applySystemBarInsets: Boolean = true,
     entryContext: () -> PluginEntryContext = { PluginEntryContext() },
-    hostUiAssetsAvailable: Boolean = true
+    hostUiAssetsAvailable: Boolean = true,
+    workspaceFiles: PluginWebViewFactory.WorkspaceFiles = PluginWebViewFactory.EmptyWorkspaceFiles,
+    fileAccess: FileAccessProvider? = null
 ) {
     // 降级：调用方显式传 false（如宿主资产确实缺失）时不加载 WebView，提示页面贡献暂不支持。
     if (!hostUiAssetsAvailable) {
@@ -111,6 +123,53 @@ fun PluginWebPanelScreen(
     // 返回键派发给页面后要等 JS 结果；期间重复触发不再派发，避免连续退出。
     var backDispatching by remember(page.cacheKey) { mutableStateOf(false) }
 
+    // 网页 `<input type=file>`：待回写的 WebView 回调（UI 线程）与本次选择参数（accept 类型 / 多选）。
+    val fileChooserCallback = remember(page.cacheKey) {
+        AtomicReference<ValueCallback<Array<Uri>>>(null)
+    }
+    val fileChooserParams = remember(page.cacheKey) {
+        AtomicReference<WebChromeClient.FileChooserParams>(null)
+    }
+    val scope = rememberCoroutineScope()
+    // Activity Result API 注册系统选择器；必须在组合顶层 remember，不能放进 WebView factory。
+    val fileChooserLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = fileChooserCallback.getAndSet(null) ?: return@rememberLauncherForActivityResult
+        if (result.resultCode != android.app.Activity.RESULT_OK) {
+            callback.onReceiveValue(null)
+            return@rememberLauncherForActivityResult
+        }
+        // 多选时 uri 在 ClipData；单选退回 data.data。
+        val uris = mutableListOf<Uri>()
+        result.data?.let { data ->
+            data.clipData?.let { clip ->
+                for (index in 0 until clip.itemCount) {
+                    clip.getItemAt(index).uri?.let(uris::add)
+                }
+            }
+            if (uris.isEmpty()) data.data?.let(uris::add)
+        }
+        val access = fileAccess
+        if (uris.isEmpty() || access == null) {
+            callback.onReceiveValue(null)
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            val picked = uris.mapNotNull { uri ->
+                runCatching {
+                    // 选中文件统一落盘到工作区 `.aiverse/attachments/`，页面后续用工作区路径 fs.* 读取。
+                    copyUriToWorkspace(context, uri, access)
+                }.onFailure { e -> FileLogger.e("PluginWebView", "file copy failed: $uri", e) }
+                    .getOrNull()
+                    ?.let { uploaded -> Uri.parse("file://" + uploaded.localPath) }
+            }.toTypedArray()
+            callback.onReceiveValue(if (picked.isEmpty()) null else picked)
+        }
+    }
+    // 把 WebView 的文件选择请求转给上面的 launcher：记住回调与参数，再用 createIntent() 拉起系统选择器。
+    // 回调在页面下一次 onShowFileChooser 时换成新的，取消/失败一律回调 null，避免页面一直等。
+
     val webView = remember(page.cacheKey) {
         (cached ?: PluginWebViewFactory.create(
             context = context,
@@ -118,12 +177,22 @@ fun PluginWebPanelScreen(
             dark = dark,
             backgroundColor = backgroundColor,
             themeVariables = { currentVariables },
+            workspaceFiles = workspaceFiles,
             onPageFinished = { view ->
                 failed = false
                 PluginWebViewCache.markLoaded(page.cacheKey, pageUrl, view)
                 view.evaluateJavascript(PluginThemeTokens.applyScript(currentVariables), null)
             },
-            onMainFrameError = { failed = true }
+            onMainFrameError = { failed = true },
+            onFileChooserRequest = { valueCallback, params ->
+                fileChooserCallback.set(valueCallback)
+                fileChooserParams.set(params)
+                runCatching { fileChooserLauncher.launch(params.createIntent()) }
+                    .onFailure { e ->
+                        FileLogger.e("PluginWebView", "[${page.pluginId}] launch file chooser failed", e)
+                        fileChooserCallback.getAndSet(null)?.onReceiveValue(null)
+                    }
+            }
         )).also { PluginWebViewCache.put(page.cacheKey, it) }
     }
 
@@ -246,6 +315,13 @@ fun PluginWebPanelScreen(
             lifecycle.removeObserver(observer)
             webView.onPause()
             PluginWebViewCache.release(webView)
+        }
+    }
+
+    // 离开页面时若有待回写的文件选择回调，回写 null，避免页面一直等结果。
+    DisposableEffect(page.cacheKey) {
+        onDispose {
+            fileChooserCallback.getAndSet(null)?.onReceiveValue(null)
         }
     }
 

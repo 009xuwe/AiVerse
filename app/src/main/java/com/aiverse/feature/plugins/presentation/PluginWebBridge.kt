@@ -483,6 +483,11 @@ class PluginWebBridge(
             PluginHostPaths.requireString(params, "text"),
             (params["title"] as? JsonPrimitive)?.contentOrNull
         )
+        "share.image" -> {
+            val path = PluginHostPaths.requireString(params, "path")
+            val target = hostPaths.resolveLocalImage(path, MAX_SHARE_IMAGE_BYTES)
+            systemService.shareImage(page.pluginId, target, (params["title"] as? JsonPrimitive)?.contentOrNull)
+        }
         "ui.openUrl" -> systemService.openUrl(
             page.pluginId,
             PluginHostPaths.requireString(params, "url")
@@ -772,6 +777,7 @@ class PluginWebBridge(
         const val UI_INVOKE_TIMEOUT_MS = 60_000L
         const val MAX_INVOKE_ARGS_CHARS = 256 * 1024
         const val MAX_TERMINAL_TITLE_CHARS = 120
+        const val MAX_SHARE_IMAGE_BYTES = 20L * 1024 * 1024
         const val DEFAULT_SHIZUKU_TIMEOUT_SECONDS = 120L
         val HANDLER_NAME = Regex("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
     }

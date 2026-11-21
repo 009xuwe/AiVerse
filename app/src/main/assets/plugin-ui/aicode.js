@@ -511,6 +511,11 @@
         var params = { text: String(text) };
         if (options && options.title != null) params.title = String(options.title);
         return call('share.text', params);
+      },
+      image: function (path, options) {
+        var params = { path: String(path) };
+        if (options && options.title != null) params.title = String(options.title);
+        return call('share.image', params);
       }
     },
     // 插件私有的加密键值存储；list 只返回键名。

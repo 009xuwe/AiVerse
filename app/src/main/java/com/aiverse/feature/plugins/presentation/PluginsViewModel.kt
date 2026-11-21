@@ -174,7 +174,11 @@ internal fun installSourceChanged(preview: PluginPreview, origin: PluginInstallO
 class PluginsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val manager: PluginManager,
-    private val fileAccess: FileAccessProvider,
+    /**
+     * 页面 WebView `<input type=file>` 选中文件的落盘后端：与 `/workspace-file/` 桥
+     * 共用同一套 fileAccess / 工作区根，把系统选择器选中的 Uri 复制进工作区 `.aiverse/attachments/`。
+     */
+    val fileAccess: FileAccessProvider,
     private val pathHomeResolver: PathHomeResolver,
     private val workspaceRepository: WorkspaceRepository,
     private val fileChangeHub: FileChangeHub,
@@ -227,6 +231,13 @@ class PluginsViewModel @Inject constructor(
     }
 
     val loaded: StateFlow<Boolean> = manager.isLoaded
+
+    /** 页面 WebView `/workspace-file/` 只读工作区来源；与桥共用同一套 fileAccess / 工作区根。 */
+    internal val workspaceFiles: PluginWorkspaceFiles = PluginWorkspaceFiles(
+        fileAccess = fileAccess,
+        homeResolver = pathHomeResolver,
+        workspacePath = { workspaceRepository.currentPath() }
+    )
 
     val shizukuState: StateFlow<ShizukuState> = shizukuManager.state
 

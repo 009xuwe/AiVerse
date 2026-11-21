@@ -125,7 +125,22 @@ import com.aiverse.feature.agent.presentation.FileBrowseState
 import com.aiverse.feature.agent.presentation.FileTreeNode
 import com.aiverse.feature.plugins.domain.session.PluginSessionGroup
 import com.aiverse.feature.plugins.domain.session.PluginSessionSummary
+import com.aiverse.feature.plugins.domain.PluginUiSlots
+import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.plugins.domain.newmodel.PluginUiEntry
+import com.aiverse.feature.plugins.presentation.PluginActionConfirmDialog
+import com.aiverse.feature.plugins.presentation.PluginChatPageHost
+import com.aiverse.feature.plugins.presentation.PluginEntryContext
 import com.aiverse.feature.plugins.presentation.PluginSessionUiMapper
+import com.aiverse.feature.plugins.presentation.PluginsViewModel
+import com.aiverse.feature.plugins.presentation.chatSlotEntries
+import com.aiverse.feature.plugins.presentation.currentLanguageTag
+import com.aiverse.feature.plugins.presentation.pluginPageIcon
+import android.widget.Toast
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aiverse.feature.agent.presentation.FileTreeRoot
 import com.aiverse.feature.workspace.domain.WorkspacePathMapper
 import com.aiverse.feature.workspace.domain.isValidFileEntryName
@@ -276,6 +291,54 @@ fun ChatDrawerContent(
     var pendingRename by remember { mutableStateOf<ChatSession?>(null) }
     var menuSession by remember { mutableStateOf<ChatSession?>(null) }
     val listState = rememberLazyListState()
+
+    // 侧栏插件槽位（drawer.footer / chat.session.menu / files.tree.menu）：复用聊天页同一套入口数据与动作通道。
+    val pluginsViewModel: PluginsViewModel = hiltViewModel()
+    val installedPlugins by pluginsViewModel.plugins.collectAsStateWithLifecycle()
+    val pluginLanguageTag = currentLanguageTag()
+    val drawerFooterEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.DRAWER_FOOTER)
+    }
+    val sessionMenuEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.CHAT_SESSION_MENU)
+    }
+    val fileTreeMenuEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.FILES_TREE_MENU)
+    }
+    var activePluginPage by remember { mutableStateOf<PluginPage?>(null) }
+    var activePluginPageSessionId by remember { mutableStateOf<String?>(null) }
+    var pendingPluginAction by remember { mutableStateOf<PluginUiEntry?>(null) }
+    var pendingPluginActionContext by remember { mutableStateOf<PluginEntryContext?>(null) }
+    val drawerContext = LocalContext.current
+    val executePluginAction: (PluginUiEntry, PluginEntryContext) -> Unit = { entry, entryContext ->
+        pluginsViewModel.runUiAction(
+            entry = entry,
+            entryContext = entryContext,
+            onMessage = { message ->
+                if (!message.isNullOrBlank()) {
+                    Toast.makeText(drawerContext, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+    val openPluginPage: (PluginPage, String?) -> Unit = { page, sessionId ->
+        activePluginPage = page
+        activePluginPageSessionId = sessionId
+    }
+    val runPluginAction: (PluginUiEntry, PluginEntryContext) -> Unit = { entry, entryContext ->
+        if (entry.confirm) {
+            pendingPluginAction = entry
+            pendingPluginActionContext = entryContext
+        } else {
+            executePluginAction(entry, entryContext)
+        }
+    }
+    val runPluginSessionAction: (PluginUiEntry, String) -> Unit = { entry, sessionId ->
+        runPluginAction(entry, PluginEntryContext(sessionId = sessionId))
+    }
+    val runPluginFileTreeAction: (PluginUiEntry, String, Boolean) -> Unit = { entry, path, isDirectory ->
+        runPluginAction(entry, PluginEntryContext(path = path, isDirectory = isDirectory))
+    }
 
     BackHandler(enabled = isSelectionMode) {
         isSelectionMode = false
@@ -500,8 +563,29 @@ fun ChatDrawerContent(
                     onPasteEntries = onPasteEntries,
                     batchCut = batchCut,
                     onClearBatchCut = onClearBatchCut,
+                    pluginEntries = fileTreeMenuEntries,
+                    pluginLanguageTag = pluginLanguageTag,
+                    onPluginRunAction = runPluginFileTreeAction,
                     onBatchDelete = onDeleteEntry
                 )
+            }
+        }
+
+        if (drawerFooterEntries.isNotEmpty()) {
+            SettingsGroup {
+                drawerFooterEntries.forEachIndexed { index, entry ->
+                    if (index > 0) SettingsDivider()
+                    SettingsRow(
+                        icon = pluginPageIcon(entry.icon),
+                        title = entry.title.resolve(pluginLanguageTag),
+                        subtitle = stringResource(R.string.plugins_ext_entry_subtitle, entry.pluginId),
+                        onClick = {
+                            val page = entry.page
+                            if (page != null) openPluginPage(page, currentSessionId)
+                            else runPluginAction(entry, PluginEntryContext(sessionId = currentSessionId))
+                        }
+                    )
+                }
             }
         }
 
@@ -572,6 +656,10 @@ fun ChatDrawerContent(
     menuSession?.let { session ->
         SessionActionSheet(
             session = session,
+            pluginEntries = sessionMenuEntries,
+            languageTag = pluginLanguageTag,
+            onOpenPage = openPluginPage,
+            onRunAction = runPluginSessionAction,
             onTogglePin = {
                 menuSession = null
                 onTogglePin(session)
@@ -595,6 +683,37 @@ fun ChatDrawerContent(
                 pendingDelete = session
             },
             onDismiss = { menuSession = null }
+        )
+    }
+
+    activePluginPage?.let { page ->
+        Dialog(
+            onDismissRequest = { activePluginPage = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            PluginChatPageHost(
+                page = page,
+                pluginsViewModel = pluginsViewModel,
+                sessionId = activePluginPageSessionId,
+                onClose = { activePluginPage = null },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+    pendingPluginAction?.let { entry ->
+        PluginActionConfirmDialog(
+            entry = entry,
+            languageTag = pluginLanguageTag,
+            onConfirm = {
+                val entryContext = pendingPluginActionContext
+                pendingPluginAction = null
+                pendingPluginActionContext = null
+                if (entryContext != null) executePluginAction(entry, entryContext)
+            },
+            onDismiss = {
+                pendingPluginAction = null
+                pendingPluginActionContext = null
+            }
         )
     }
 
@@ -1083,6 +1202,9 @@ private fun FileBrowserTab(
     onPasteEntries: (String) -> Unit,
     batchCut: Set<String> = emptySet(),
     onClearBatchCut: () -> Unit,
+    pluginEntries: List<PluginUiEntry>,
+    pluginLanguageTag: String,
+    onPluginRunAction: (PluginUiEntry, String, Boolean) -> Unit,
     onBatchDelete: (String) -> Unit
 ) {
     // 编辑模式：点击编辑按钮进入，行前置复选框可勾选；选中后可批量分享/导出/移动/删除
@@ -1719,6 +1841,9 @@ private fun FileBrowserTab(
         FileTreeActionSheet(
             node = node,
             clipboard = clipboard,
+            pluginEntries = pluginEntries,
+            languageTag = pluginLanguageTag,
+            onRunAction = onPluginRunAction,
             onUploadFile = uploadFileAction,
             onUploadFolder = uploadFolderAction,
             onOpenWith = openWithAction,
@@ -1939,6 +2064,9 @@ private fun buildBreadcrumbSegments(focusPath: String, workspaceRoot: String, ro
 private fun FileTreeActionSheet(
     node: FileTreeNode,
     clipboard: BrowseClipboard?,
+    pluginEntries: List<PluginUiEntry>,
+    languageTag: String,
+    onRunAction: (PluginUiEntry, String, Boolean) -> Unit,
     onUploadFile: (() -> Unit)?,
     onUploadFolder: (() -> Unit)?,
     onOpenWith: (() -> Unit)?,
@@ -2066,6 +2194,28 @@ private fun FileTreeActionSheet(
                     tint = MaterialTheme.colorScheme.error,
                     onClick = action
                 )
+            }
+            // 文件树长按菜单的插件入口（files.tree.menu）：只接受动作入口，把文件路径交给 handler。
+            if (pluginEntries.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.plugins_slot_welcome_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(horizontal = Spacing.lg)
+                        .padding(top = Spacing.md, bottom = Spacing.sm)
+                )
+                pluginEntries.forEach { entry ->
+                    SheetActionRow(
+                        icon = pluginPageIcon(entry.icon),
+                        label = entry.title.resolve(languageTag),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        onClick = {
+                            onDismiss()
+                            onRunAction(entry, node.path, node.entry.isDirectory)
+                        }
+                    )
+                }
             }
         }
     }
@@ -2271,6 +2421,10 @@ private val FILE_TREE_ROW_OVERHEAD = 68.dp
 @Composable
 private fun SessionActionSheet(
     session: ChatSession,
+    pluginEntries: List<PluginUiEntry>,
+    languageTag: String,
+    onOpenPage: (PluginPage, String) -> Unit,
+    onRunAction: (PluginUiEntry, String) -> Unit,
     onTogglePin: () -> Unit,
     onRename: () -> Unit,
     onExport: () -> Unit,
@@ -2344,6 +2498,30 @@ private fun SessionActionSheet(
                     onDelete()
                 }
             )
+            // 会话菜单的插件入口（chat.session.menu）：把当前会话 id 交给插件页 / handler。
+            if (pluginEntries.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.plugins_slot_welcome_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(horizontal = Spacing.lg)
+                        .padding(top = Spacing.md, bottom = Spacing.sm)
+                )
+                pluginEntries.forEach { entry ->
+                    SheetActionRow(
+                        icon = pluginPageIcon(entry.icon),
+                        label = entry.title.resolve(languageTag),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        onClick = {
+                            onDismiss()
+                            val page = entry.page
+                            if (page != null) onOpenPage(page, session.id)
+                            else onRunAction(entry, session.id)
+                        }
+                    )
+                }
+            }
         }
     }
 }

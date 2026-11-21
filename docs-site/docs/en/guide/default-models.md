@@ -20,11 +20,13 @@ A few things worth knowing about using vision:
 
 ## Image Generation Model
 
-Sets the model used by the `generateImage` tool, supporting OpenAI- and Gemini-compatible interfaces.
+Sets the model used by the `generateImage` tool, supporting OpenAI- and Gemini-compatible interfaces. The image-editing tool `editImage` (image-to-image) also uses this configuration.
 
 -   The OpenAI-compatible interface supports parameters such as size, count, quality, background, style, and output format.
 -   The Gemini-compatible interface uses the model's default size and resolution; when generating multiple images it calls multiple times.
 -   Images are saved by default to `~/.aiverse/generated-images/`, and you can also specify a workspace path. The limit is 20MB per image and 48MB total per call.
+
+The image-editing tool `editImage` reworks workspace reference images according to an instruction: the first image is the base, the rest are references, up to 4 in total. **Reference images are uploaded to the image service**, so avoid using it on images containing sensitive information. It uses OpenAI's `/images/edits` endpoint or Gemini's reference-image channel; if the current image generation model does not support editing (such as dall-e-3), you will be prompted to switch to a model that supports image editing.
 
 ## Image-Model In-Conversation Image Generation
 

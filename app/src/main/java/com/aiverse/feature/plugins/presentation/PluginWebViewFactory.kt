@@ -2,8 +2,10 @@ package com.aiverse.feature.plugins.presentation
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.view.ContextThemeWrapper
 import android.webkit.ConsoleMessage
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -13,6 +15,8 @@ import androidx.webkit.WebViewAssetLoader
 import com.aiverse.R
 import com.aiverse.core.util.FileLogger
 import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.workspace.domain.FileAccessProvider
+import com.aiverse.feature.workspace.domain.PathHomeResolver
 import java.io.ByteArrayInputStream
 import java.io.File
 
@@ -21,7 +25,9 @@ import java.io.File
  *
  * 设置页面板与进入设置时的预热共用同一套配置，避免两处各写一份导致行为不一致。
  * 页面资源只经 [WebViewAssetLoader] 的虚拟域加载：`/plugin/` 映射插件安装目录，
- * `/__aicode/` 提供宿主的 `aicode.js` 与动态主题变量，不暴露本地文件系统。
+ * `/__aicode/` 提供宿主的 `aicode.js` 与动态主题变量，`/workspace-file/` 只读映射当前工作区树
+ * （`~/workspace/…` 与 `~/.aiverse/…`，即生图工作台的 attachments / generated-images），
+ * 不暴露工作区之外的本地文件系统。
  *
  * HTML 响应附带 CSP，禁止远程脚本、iframe 与 object；资源字节走进程内缓存减少重复读盘，
  * 但响应头保持 `Cache-Control: no-store`，插件覆盖与 APK 更新后 WebView 不会继续用旧内容。
@@ -32,7 +38,7 @@ import java.io.File
  * [hostUiAssetsAvailable] 为 false 时 [`__aicode/`] 路径不提供这些资产（[HostUiAssetHandler] 返回 null），
  * 页面贡献由 [PluginWebPanelScreen] 给出明确的不支持提示。
  */
-internal object PluginWebViewFactory {
+object PluginWebViewFactory {
 
     const val PAGE_BASE_URL = "https://appassets.androidplatform.net/plugin/"
 
@@ -41,7 +47,24 @@ internal object PluginWebViewFactory {
         return PAGE_BASE_URL + page.pageFile + version
     }
 
-    /** 插件浮层：透明 WebView，禁用滚动条与外部导航，页面资源仍只走虚拟域。 */
+    /**
+     * 页面可用的只读工作区文件来源；供 `/workspace-file/` 虚拟路径解析为可读本地文件。
+     * 实现负责把工作区容器路径映射到宿主本地文件并**强制工作区包含关系**（含 canonical 前缀与符号链接逃逸校验），
+     * 解析不出本地文件（远程降级）或越出工作区时返回 null。
+     * 没有可用工作区后端（如页面浮层）时传 [EmptyWorkspaceFiles]，该路径一律不提供内容。
+     */
+    interface WorkspaceFiles {
+        /** 把工作区容器路径（`~/…` 或裸相对路径）解析为可读本地文件；不在工作区内或不可读时返回 null。 */
+        fun resolveFile(workspacePath: String): File?
+    }
+
+    object EmptyWorkspaceFiles : WorkspaceFiles {
+        override fun resolveFile(workspacePath: String): File? = null
+    }
+
+    /**
+     * 页面浮层：透明 WebView，禁用滚动条与外部导航，页面资源仍只走虚拟域。
+     */
     fun createOverlay(
         context: Context,
         page: PluginPage,
@@ -53,8 +76,10 @@ internal object PluginWebViewFactory {
         dark = false,
         backgroundColor = android.graphics.Color.TRANSPARENT,
         themeVariables = { emptyMap() },
+        workspaceFiles = EmptyWorkspaceFiles,
         onPageFinished = onPageFinished,
-        onMainFrameError = onMainFrameError
+        onMainFrameError = onMainFrameError,
+        onFileChooserRequest = null
     ).apply {
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         settings.domStorageEnabled = true
@@ -71,12 +96,15 @@ internal object PluginWebViewFactory {
         dark: Boolean,
         backgroundColor: Int,
         themeVariables: () -> Map<String, String>,
+        workspaceFiles: WorkspaceFiles,
         onPageFinished: (WebView) -> Unit,
-        onMainFrameError: () -> Unit
+        onMainFrameError: () -> Unit,
+        onFileChooserRequest: ((ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Unit)? = null
     ): WebView {
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/plugin/", PluginPageAssetHandler(page.installDir.canonicalFile))
             .addPathHandler("/__aicode/", HostUiAssetHandler(context) { themeVariables() })
+            .addPathHandler("/workspace-file/", WorkspaceAssetHandler(workspaceFiles))
             .build()
 
         return WebView(ContextThemeWrapper(context, webViewThemeRes(dark))).apply {
@@ -97,6 +125,25 @@ internal object PluginWebViewFactory {
                         "[${page.pluginId}] ${message.message()} (${message.sourceId()}:${message.lineNumber()})"
                     )
                     return true
+                }
+
+                // 网页 `<input type=file>`：转发给宿主选择器（UI 线程，valueCallback 拿到结果后必须调用一次，
+                // 成功传 uri 数组、取消传 null）；宿主未接入选择器（onFileChooserRequest 为空实现）时返回 false，
+                // 交回 WebView 默认行为。
+                override fun onShowFileChooser(
+                    webView: WebView,
+                    filePathCallback: ValueCallback<Array<Uri>>,
+                    fileChooserParams: FileChooserParams
+                ): Boolean {
+                    val forward = onFileChooserRequest ?: return false
+                    return try {
+                        forward(filePathCallback, fileChooserParams)
+                        true
+                    } catch (e: Exception) {
+                        FileLogger.e("PluginWebView", "[${page.pluginId}] onShowFileChooser failed", e)
+                        filePathCallback.onReceiveValue(null)
+                        false
+                    }
                 }
             }
             webViewClient = object : WebViewClient() {
@@ -141,6 +188,43 @@ internal object PluginWebViewFactory {
         private fun cachedBytes(file: File): ByteArray? {
             // 键含 canonical path + mtime + size：插件同版本覆盖文件会换键，不会读到旧字节。
             val key = "plugin:${file.path}:${file.lastModified()}:${file.length()}"
+            ResourceCache.get(key)?.let { return it }
+            val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
+            ResourceCache.put(key, bytes)
+            return bytes
+        }
+    }
+
+    /**
+     * 只读映射当前工作区树（`~/workspace/…`、`~/.aiverse/…`）到虚拟域 `/workspace-file/`。
+     *
+     * 防穿越：拒绝空段 / `.` / `..` / 反斜杠 / 控制字符；包含关系（canonical 前缀 + 符号链接逃逸）
+     * 由 [WorkspaceFiles] 实现强制。只提供读；字节走 [ResourceCache]（键含 mtime + size，
+     * 工作区文件被覆盖即换键）。
+     */
+    private class WorkspaceAssetHandler(
+        private val workspaceFiles: WorkspaceFiles
+    ) : WebViewAssetLoader.PathHandler {
+        override fun handle(path: String): WebResourceResponse? {
+            if (path.isBlank() || path.contains('\\') || path.any { it.isISOControl() }) return null
+            if (path.split('/').any { it.isEmpty() || it == "." || it == ".." }) return null
+            val containerPath = path.trim('/').ifEmpty { "~" }
+            // 回传的选中文件是宿主绝对路径（已是 copyToLocal 落盘的可信产物，直接用本地 File，
+            // 不再走容器映射——远程模式对绝对路径再 copyToLocal 会误当容器路径走 SFTP）；既有图片
+            // 引用是 `~/…` 容器路径，仍交 resolveFile 做工作区包含校验。
+            val resolved = if (containerPath.startsWith("/")) {
+                File(containerPath).takeIf { it.isFile }
+            } else {
+                workspaceFiles.resolveFile("~/$containerPath")?.takeIf { it.isFile }
+            } ?: return null
+            val canonical = runCatching { resolved.canonicalFile }.getOrNull() ?: return null
+            val bytes = cachedBytes(canonical) ?: return null
+            return webResource(mimeOf(path), bytes)
+        }
+
+        private fun cachedBytes(file: File): ByteArray? {
+            // 键含 canonical path + mtime + size：工作区文件被覆盖会换键，不会读到旧字节。
+            val key = "workspace:${file.path}:${file.lastModified()}:${file.length()}"
             ResourceCache.get(key)?.let { return it }
             val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
             ResourceCache.put(key, bytes)
@@ -267,3 +351,34 @@ internal const val HTML_CONTENT_SECURITY_POLICY: String =
 /** 只有 HTML 需要 CSP；CSS/JS/图片等子资源不加，避免多余响应头。 */
 internal fun contentSecurityPolicyForMime(mime: String): String? =
     if (mime == "text/html") HTML_CONTENT_SECURITY_POLICY else null
+
+/**
+ * [PluginWebViewFactory.WorkspaceFiles] 的默认实现：把工作区容器路径映射到宿主本地文件，
+ * 并强制结果落在当前工作区根内（canonical 前缀 + 符号链接逃逸校验）。
+ *
+ * 本地模式（[FileAccessProvider.copyToLocal] 只做路径映射）下严格包含校验；
+ * 远程 SSH 模式 `copyToLocal` 会把文件下载到 App cache，落点不在工作区树内，
+ * 此时降级为信任后端（返回缓存副本），仍只读，且只能读到工作区树内存在的文件。
+ */
+internal class PluginWorkspaceFiles(
+    private val fileAccess: FileAccessProvider,
+    private val homeResolver: PathHomeResolver,
+    private val workspacePath: () -> String
+) : PluginWebViewFactory.WorkspaceFiles {
+
+    private val rootFile by lazy { runCatching { fileAccess.copyToLocal(workspacePath()) }.getOrNull() }
+    private val rootCanonical by lazy { rootFile?.let { runCatching { it.canonicalFile }.getOrNull() } }
+
+    override fun resolveFile(workspacePath: String): File? {
+        val root = rootFile ?: return null
+        val expanded = homeResolver.expandHome(workspacePath.trim()).ifEmpty { workspacePath() }
+        val file = runCatching { fileAccess.copyToLocal(expanded) }.getOrNull() ?: return null
+        if (!file.isFile) return null
+        val rootCanonical = rootCanonical ?: return null
+        val canonical = runCatching { file.canonicalFile }.getOrNull() ?: return null
+        val prefix = rootCanonical.path + File.separator
+        if (canonical == rootCanonical || canonical.path.startsWith(prefix)) return canonical
+        // 远程模式降级：copyToLocal 的缓存副本不在工作区前缀下，只要后端确认文件存在即可读。
+        return if (runCatching { fileAccess.isFile(expanded) }.getOrDefault(false)) file else null
+    }
+}

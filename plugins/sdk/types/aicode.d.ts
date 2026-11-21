@@ -944,6 +944,8 @@ export interface AicodeBridge {
 
   share: {
     text(text: string, options?: { title?: string }): Promise<{ ok: boolean }>;
+    /** 分享工作区里的一张图片（生图工作台导出）；`path` 为工作区容器路径，可带 `~/`。 */
+    image(path: string, options?: { title?: string }): Promise<{ ok: boolean }>;
   };
 
   /** 插件私有加密键值存储；值上限 64 KiB。 */

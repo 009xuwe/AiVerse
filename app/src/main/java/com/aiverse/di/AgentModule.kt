@@ -33,6 +33,7 @@ import com.aiverse.feature.settings.data.repository.ExecutionModeHolder
 import com.aiverse.feature.agent.domain.tool.file.ReadFileTool
 import com.aiverse.feature.agent.domain.tool.file.SendFileTool
 import com.aiverse.feature.agent.domain.tool.file.GenerateImageTool
+import com.aiverse.feature.agent.domain.tool.file.EditImageTool
 import com.aiverse.feature.agent.domain.tool.file.ViewImageTool
 import com.aiverse.feature.agent.domain.tool.file.WriteFileTool
 import com.aiverse.feature.agent.domain.tool.editor.EditFileTool
@@ -397,6 +398,7 @@ object AgentModule {
         writeFileTool: WriteFileTool,
         editFileTool: EditFileTool,
         generateImageTool: GenerateImageTool,
+        editImageTool: EditImageTool,
         executeCommandTool: ExecuteCommandTool,
         shizukuTool: ShizukuTool,
         phoneControlTool: PhoneControlTool,
@@ -445,6 +447,7 @@ object AgentModule {
             register("writeFile", writeFileTool)
             register("editFile", editFileTool)
             register("generateImage", generateImageTool)
+            register("editImage", editImageTool)
             register("Bash", executeCommandTool)
             register("Shizuku", shizukuTool)
             register("PhoneControl", phoneControlTool)

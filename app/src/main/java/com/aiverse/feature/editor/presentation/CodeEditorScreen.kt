@@ -73,6 +73,14 @@ import com.aiverse.core.util.LineDiff
 import com.aiverse.feature.editor.data.EditorSettings
 import com.aiverse.feature.editor.domain.TextMateSetup
 import com.aiverse.feature.editor.presentation.component.MarkdownPreviewWebView
+import com.aiverse.feature.plugins.domain.PluginUiSlots
+import com.aiverse.feature.plugins.domain.newmodel.PluginUiEntry
+import com.aiverse.feature.plugins.presentation.PluginActionConfirmDialog
+import com.aiverse.feature.plugins.presentation.PluginEditorSelectionBar
+import com.aiverse.feature.plugins.presentation.PluginEntryContext
+import com.aiverse.feature.plugins.presentation.PluginsViewModel
+import com.aiverse.feature.plugins.presentation.chatSlotEntries
+import com.aiverse.feature.plugins.presentation.currentLanguageTag
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.ChevronLeft
@@ -149,6 +157,11 @@ fun CodeEditorScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val saving by viewModel.saving.collectAsStateWithLifecycle()
 
+    // 编辑器选区（editor.selection.menu）：选中文本与行号范围（1 基）；清空时隐藏插件入口。
+    var selectionText by remember { mutableStateOf("") }
+    var selectionLineStart by remember { mutableStateOf(0) }
+    var selectionLineEnd by remember { mutableStateOf(0) }
+
     // 切换文件时重置编辑态，避免旧文件的撤销/脏标记残留到新文件。
     LaunchedEffect(path) {
         canUndo = false
@@ -186,6 +199,35 @@ fun CodeEditorScreen(
     val savedText = stringResource(R.string.editor_save_success)
     val saveFailedText = stringResource(R.string.editor_save_failed)
     val conflictDiscardedText = stringResource(R.string.editor_save_conflict_discarded)
+
+    // 编辑器插件槽位（editor.selection.menu）只接受动作入口：复用聊天页同一套入口数据与动作通道。
+    val pluginsViewModel: PluginsViewModel = hiltViewModel()
+    val installedPlugins by pluginsViewModel.plugins.collectAsStateWithLifecycle()
+    val pluginLanguageTag = currentLanguageTag()
+    val editorSelectionEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.EDITOR_SELECTION_MENU)
+    }
+    var pendingPluginAction by remember { mutableStateOf<PluginUiEntry?>(null) }
+    val runPluginSelectionAction: (PluginUiEntry) -> Unit = { entry ->
+        if (entry.confirm) {
+            pendingPluginAction = entry
+        } else {
+            pluginsViewModel.runUiAction(
+                entry = entry,
+                entryContext = PluginEntryContext(
+                    path = path,
+                    selection = selectionText,
+                    lineStart = selectionLineStart,
+                    lineEnd = selectionLineEnd
+                ),
+                onMessage = { message ->
+                    if (!message.isNullOrBlank()) {
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
+    }
     // 保存冲突：磁盘内容在编辑器打开之后被改过。非空时弹对话框让用户选，不自动覆盖也不自动丢弃。
     var saveConflictDiskContent by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
@@ -358,11 +400,28 @@ fun CodeEditorScreen(
                             cursorLine = l
                             cursorColumn = c
                         },
+                        onSelectionChanged = { text, lineStart, lineEnd ->
+                            selectionText = text
+                            selectionLineStart = lineStart
+                            selectionLineEnd = lineEnd
+                        },
                         onContentChanged = { undo, redo, changed ->
                             canUndo = undo
                             canRedo = redo
                             dirty = changed
                         }
+                    )
+                }
+                if (!previewMode && selectionText.isNotEmpty() && editorSelectionEntries.isNotEmpty()) {
+                    // 选中文本后的浮动插件菜单：叠加在编辑区底部，不遮挡顶栏与符号栏。
+                    PluginEditorSelectionBar(
+                        entries = editorSelectionEntries,
+                        languageTag = pluginLanguageTag,
+                        onRunAction = runPluginSelectionAction,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = Spacing.md)
+                            .padding(bottom = Spacing.md)
                     )
                 }
                 if (previewMode) {
@@ -470,6 +529,18 @@ fun CodeEditorScreen(
         )
     }
 
+    pendingPluginAction?.let { entry ->
+        PluginActionConfirmDialog(
+            entry = entry,
+            languageTag = pluginLanguageTag,
+            onConfirm = {
+                pendingPluginAction = null
+                runPluginSelectionAction(entry)
+            },
+            onDismiss = { pendingPluginAction = null }
+        )
+    }
+
     if (showSettings) {
         EditorSettingsScreen(onBack = { showSettings = false })
     }
@@ -529,6 +600,7 @@ private fun EditorSurface(
     initialLine: Int = 0,
     onBackgroundResolved: (Color) -> Unit,
     onCursorChanged: (line: Int, column: Int) -> Unit,
+    onSelectionChanged: (text: String, lineStart: Int, lineEnd: Int) -> Unit,
     onContentChanged: (canUndo: Boolean, canRedo: Boolean, dirty: Boolean) -> Unit
 ) {
     // 与实际渲染出的 Compose 主题保持一致，而非跟随系统设置——应用内可单独切换主题。
@@ -598,6 +670,13 @@ private fun EditorSurface(
                     }
                 }
                 subscribeAlways(SelectionChangeEvent::class.java) {
+                    // 选区变化同步给 Compose：有选区时取选中文本与行号范围（1 基），供 editor.selection.menu 插件入口。
+                    if (cursor.isSelected) {
+                        val selected = editorView.text.substring(cursor.left, cursor.right)
+                        onSelectionChanged(selected, cursor.leftLine + 1, cursor.rightLine + 1)
+                    } else {
+                        onSelectionChanged("", 0, 0)
+                    }
                     onCursorChanged(cursor.leftLine + 1, cursor.leftColumn + 1)
                 }
                 subscribeAlways(ScrollEvent::class.java) { event ->

@@ -10,11 +10,11 @@ class GenerateImageToolTest {
 
     @Test
     fun estimatedDecodedBytes_rejectsOversizedPayloadBeforeDecode() {
-        val maxBase64Length = (GenerateImageTool.MAX_IMAGE_BYTES * 4 / 3).toInt()
+        val maxBase64Length = (AbstractImageTool.MAX_IMAGE_BYTES * 4 / 3).toInt()
 
         assertTrue(
-            GenerateImageTool.estimatedDecodedBytes(maxBase64Length + 8) >
-                GenerateImageTool.MAX_IMAGE_BYTES
+            AbstractImageTool.estimatedDecodedBytes(maxBase64Length + 8) >
+                AbstractImageTool.MAX_IMAGE_BYTES
         )
     }
 

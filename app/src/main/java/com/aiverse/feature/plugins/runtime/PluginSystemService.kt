@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import androidx.core.content.FileProvider
 import com.aiverse.core.util.FileLogger
 import com.aiverse.feature.plugins.domain.PluginHostException
 import com.aiverse.feature.plugins.domain.PluginManager
@@ -15,6 +16,7 @@ import com.aiverse.feature.plugins.overlay.AppForegroundMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URI
 import java.net.URISyntaxException
+import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -82,6 +84,41 @@ class PluginSystemService @Inject constructor(
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, text)
                     if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+                },
+                subject
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(chooser)
+            } catch (e: ActivityNotFoundException) {
+                throw PluginHostException("NO_ACTIVITY", "no activity to handle share")
+            }
+        }
+        return ok()
+    }
+
+    /**
+     * 拉起系统分享面板分享一张工作区图片；[file] 为已解析的本地文件（工作区内或远程下载的缓存副本）。
+     *
+     * 与 [shareText] 同一套规则：插件须启用、主线程 `startActivity`、无接收方抛 `NO_ACTIVITY`。
+     * 通过 [FileProvider] 授权只读 URI（工作区在 `filesDir` 下，已被 `file_paths.xml` 的
+     * `files-path` 覆盖；远程缓存副本落 `cache-path`）。大小上限为生成图量级（[MAX_SHARE_IMAGE_BYTES]）。
+     */
+    suspend fun shareImage(pluginId: String, file: File, title: String? = null): JsonElement {
+        ensureActive(pluginId)
+        if (!file.isFile) throw PluginHostException("NOT_FOUND", "not a file: ${file.path}")
+        if (file.length() > MAX_SHARE_IMAGE_BYTES) {
+            throw PluginHostException("TOO_LARGE", "share image too large")
+        }
+        val subject = title?.trim()?.takeIf { it.isNotEmpty() }
+        withContext(Dispatchers.Main) {
+            val uri = FileProvider.getUriForFile(context, context.packageName + FILE_PROVIDER_SUFFIX, file)
+            val chooser = Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = shareImageMime(file.name)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newRawUri(CLIP_IMAGE_LABEL, uri)
+                    if (subject != null) putExtra(Intent.EXTRA_SUBJECT, subject)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 },
                 subject
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -186,10 +223,24 @@ class PluginSystemService @Inject constructor(
 
     private fun ok(): JsonElement = buildJsonObject { put("ok", true) }
 
+    /** 按扩展名给精确图片 mime；识别不出退回通配的 image 斜杠星，让接收方自行决定。 */
+    private fun shareImageMime(name: String): String = when (name.substringAfterLast('.', "").lowercase(Locale.ROOT)) {
+        "png" -> "image/png"
+        "jpg", "jpeg" -> "image/jpeg"
+        "gif" -> "image/gif"
+        "webp" -> "image/webp"
+        "bmp" -> "image/bmp"
+        "svg" -> "image/svg+xml"
+        else -> "image/*"
+    }
+
     private companion object {
         const val CLIP_LABEL = "text"
+        const val CLIP_IMAGE_LABEL = "image"
         const val MAX_CLIPBOARD_BYTES = 1024 * 1024
         const val MAX_SHARE_CHARS = 100_000
+        const val MAX_SHARE_IMAGE_BYTES = 20L * 1024 * 1024
+        const val FILE_PROVIDER_SUFFIX = ".fileprovider"
         const val MAX_URL_CHARS = 4096
         const val MAX_LOG_MESSAGE_CHARS = 2000
         const val MAX_LOG_TAG_CHARS = 64

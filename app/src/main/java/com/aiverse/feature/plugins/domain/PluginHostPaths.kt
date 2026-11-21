@@ -116,6 +116,22 @@ class PluginHostPaths(
         return ok()
     }
 
+    /**
+     * 解析工作区图片为可分享的本地文件（[FileAccessProvider.copyToLocal]：本地返回映射后的宿主文件，
+     * 远程下载到缓存副本）。供页面桥的 `share.image` 使用；超过 [maxBytes] 抛 `TOO_LARGE`。
+     * 不限制扩展名——分享交给系统按 mime 判断，识别不出的图片扩展名由接收方决定。
+     */
+    fun resolveLocalImage(path: String, maxBytes: Long): File {
+        val target = resolve(path)
+        if (!fileAccess.exists(target) || fileAccess.isDirectory(target)) {
+            throw PluginHostException("NOT_FOUND", "not a file: $path")
+        }
+        if (fileAccess.fileSize(target) > maxBytes) {
+            throw PluginHostException("TOO_LARGE", "share image too large: $path")
+        }
+        return mapIoError(path) { fileAccess.copyToLocal(target) }
+    }
+
     /** 移动/重命名；源与目标在同一后端，不能是根，也不能把目录移进自身。 */
     fun rename(from: String, to: String): JsonElement {
         val source = resolveWritable(from, followFinalLink = false)
