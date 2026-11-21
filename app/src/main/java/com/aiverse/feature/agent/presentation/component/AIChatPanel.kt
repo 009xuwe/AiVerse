@@ -2405,6 +2405,9 @@ fun AIChatPanel(
             // 「优化输入」/「思考档位收敛」Snackbar：显示在输入框上方，不遮挡消息与输入框。
             SnackbarHost(hostState = optimizeSnackbarHostState)
 
+            // 插件 host.tip 提示条：队首一条，关闭/执行动作后自动露出下一条。
+            PluginTipBanner()
+
             ChatInputBar(
                 value = inputText,
                 onValueChange = viewModel::updateInputDraft,
