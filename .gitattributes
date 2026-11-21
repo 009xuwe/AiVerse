@@ -57,3 +57,11 @@ site/docs-site/** linguist-vendored
 *.css      linguist-detectable=false
 *.vue      linguist-detectable=false
 *.html     linguist-detectable=false
+
+# 语言统计仅保留 Kotlin 与 Java（其余语言不计入）
+*.ts       linguist-detectable=false
+*.tsx      linguist-detectable=false
+*.py       linguist-detectable=false
+*.mjs      linguist-detectable=false
+*.cjs      linguist-detectable=false
+*.sh       linguist-detectable=false
