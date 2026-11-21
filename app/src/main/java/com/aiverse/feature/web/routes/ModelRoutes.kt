@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.first
 
 /** 模型路由：列出全部 provider 的可用模型 / 添加模型（与 App 的 Provider 配置同步）。 */
 fun Route.modelRoutes(providerRepository: AIProviderRepository) {
-    route("/models") {
+    route("/api/models") {
         // 全部 provider + 可用模型。
         get {
             val providers = providerRepository.getAllProviders().first()

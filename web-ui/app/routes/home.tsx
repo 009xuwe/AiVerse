@@ -1,47 +1,45 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
-import { MessageSquare } from "lucide-react";
-import { listSessions } from "~/services/api";
-import dayjs from "dayjs";
+import { Asterisk, Terminal, GitBranch, Smartphone } from "lucide-react";
+import { Shell } from "~/components/Shell";
+import { SessionList } from "~/components/SessionList";
+
+const FEATURES = [
+  { icon: Terminal, title: "终端与 Agent", desc: "在手机的 Linux 容器里读写文件、执行命令" },
+  { icon: GitBranch, title: "会话同步", desc: "网页端与 App 共享同一份会话与消息" },
+  { icon: Smartphone, title: "随处访问", desc: "同一局域网内，用电脑浏览器接着聊" },
+];
 
 export default function Home() {
-  const { data: sessions, isLoading, error } = useQuery({
-    queryKey: ["sessions"],
-    queryFn: listSessions,
-  });
-
   return (
-    <div className="min-h-dvh bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 border-b border-zinc-800 bg-zinc-950/90 px-4 py-3 backdrop-blur">
-        <h1 className="text-base font-semibold">AiVerse</h1>
-      </header>
-      <main className="mx-auto max-w-2xl px-4 py-4">
-        {isLoading && <p className="text-sm text-zinc-500">加载中…</p>}
-        {error && (
-          <p className="text-sm text-red-400">加载失败：{String(error)}</p>
-        )}
-        {sessions && sessions.length === 0 && (
-          <p className="text-sm text-zinc-500">暂无会话，请先在 App 里发起对话。</p>
-        )}
-        <ul className="space-y-2">
-          {sessions?.map((s) => (
-            <li key={s.id}>
-              <Link
-                to={`/c/${s.id}`}
-                className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 transition-colors hover:bg-zinc-800/70"
+    <Shell title="AiVerse" subtitle="选择一个会话继续对话">
+      {/* 手机：直接展示会话列表 */}
+      <div className="flex min-h-0 flex-1 flex-col pt-2 md:hidden">
+        <SessionList />
+      </div>
+
+      {/* 桌面：欢迎页（会话在左侧栏） */}
+      <main className="hidden flex-1 items-center justify-center overflow-y-auto p-8 md:flex">
+        <div className="anim-in w-full max-w-2xl text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-accent-fg shadow-card">
+            <Asterisk className="h-9 w-9" strokeWidth={2.2} />
+          </div>
+          <h2 className="font-serif text-3xl font-normal tracking-tight">欢迎使用 AiVerse</h2>
+          <p className="mt-2 text-sm text-muted">从左侧选择一个会话，继续与 AI Agent 协作。</p>
+          <div className="mt-10 grid grid-cols-3 gap-3 text-left">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-accent/40"
               >
-                <MessageSquare className="h-4 w-4 shrink-0 text-zinc-500" />
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  {s.title || "未命名会话"}
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                  <Icon className="h-[18px] w-[18px]" />
                 </span>
-                <span className="shrink-0 text-xs text-zinc-500">
-                  {dayjs(s.updatedAt).format("MM-DD HH:mm")}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <p className="mt-3 text-sm font-medium">{title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </main>
-    </div>
+    </Shell>
   );
 }

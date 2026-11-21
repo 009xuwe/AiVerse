@@ -24,7 +24,8 @@ data class SessionDto(
     val totalOutputTokens: Int = 0,
     val isPinned: Boolean = false,
     val parentId: String? = null,
-    val subagentType: String? = null
+    val subagentType: String? = null,
+    val roleId: String? = null
 ) {
     companion object {
         fun from(e: ChatSessionEntity) = SessionDto(
@@ -44,7 +45,8 @@ data class SessionDto(
             totalOutputTokens = e.totalOutputTokens,
             isPinned = e.isPinned,
             parentId = e.parentId,
-            subagentType = e.subagentType
+            subagentType = e.subagentType,
+            roleId = e.roleId
         )
     }
 }
@@ -173,4 +175,71 @@ data class FileEntryDto(
 data class ApiResponse(
     val ok: Boolean = true,
     val error: String? = null
+)
+
+/** 登录请求体：访问密码。 */
+@Serializable
+data class LoginRequest(
+    val password: String
+)
+
+/** 登录响应体：签发的 Bearer token。 */
+@Serializable
+data class LoginResponse(
+    val token: String
+)
+
+/** 新建会话请求体（字段均可空，缺省跟随默认）。 */
+@Serializable
+data class CreateSessionRequest(
+    val workspacePath: String? = null,
+    val providerId: String? = null,
+    val model: String? = null,
+    val reasoningEffort: String? = null,
+    val roleId: String? = null
+)
+
+/** 设置会话思考强度请求体。 */
+@Serializable
+data class SetReasoningEffortRequest(
+    val effort: String
+)
+
+/** 绑定会话角色请求体；roleId 为 null 表示切回默认角色。 */
+@Serializable
+data class SetSessionRoleRequest(
+    val roleId: String? = null
+)
+
+/** 联网搜索开关的读取/写入体。 */
+@Serializable
+data class WebSearchSettingDto(
+    val enabled: Boolean
+)
+
+/** 网页端 API 返回的角色（精简字段，供会话绑定选择）。 */
+@Serializable
+data class RoleDto(
+    val id: String,
+    val name: String,
+    val description: String = "",
+    val avatarKind: String = "NONE",
+    val avatarValue: String = ""
+)
+
+/** 网页端 API 返回的 MCP server 状态。 */
+@Serializable
+data class McpServerDto(
+    val name: String,
+    val state: String,
+    val toolCount: Int = 0,
+    val error: String? = null
+)
+
+/** SSE 流式推送体：content / reasoning 变化，settled=true 表示本轮结束。 */
+@Serializable
+data class StreamingEventDto(
+    val content: String = "",
+    val reasoning: String = "",
+    val settled: Boolean = false
 )

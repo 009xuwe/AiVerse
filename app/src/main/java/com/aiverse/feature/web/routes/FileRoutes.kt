@@ -14,7 +14,7 @@ fun Route.fileRoutes(
     fileMentionRepository: FileMentionRepository,
     workspaceRepository: WorkspaceRepository
 ) {
-    route("/files") {
+    route("/api/files") {
         get {
             val path = workspaceRepository.currentPath()
             if (path.isBlank()) {

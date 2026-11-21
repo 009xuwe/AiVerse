@@ -48,3 +48,38 @@ export interface FavoriteDto {
 }
 
 export type MessageRole = "USER" | "ASSISTANT" | "TOOL" | "SYSTEM";
+
+export interface ModelInfoDto {
+  id: string;
+  name: string;
+  type: string;
+  models: string[];
+  selectedModel: string | null;
+  isEnabled: boolean;
+  hasApiKey: boolean;
+}
+
+export interface RoleDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  avatarKind?: string;
+  avatarValue?: string | null;
+}
+
+export interface McpServerDto {
+  name: string;
+  state: "CONNECTING" | "CONNECTED" | "NEEDS_AUTH" | "FAILED" | "DISABLED";
+  toolCount: number;
+  error?: string | null;
+}
+
+export interface FileEntryDto {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+}
+
+export const REASONING_EFFORTS = ["AUTO", "LOW", "MEDIUM", "HIGH"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];

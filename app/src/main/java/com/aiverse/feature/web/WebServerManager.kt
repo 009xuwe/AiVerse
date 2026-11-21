@@ -3,16 +3,25 @@ package com.aiverse.feature.web
 import android.util.Log
 import com.aiverse.feature.agent.data.local.dao.AgentMessageDao
 import com.aiverse.feature.agent.data.local.dao.ChatSessionDao
+import com.aiverse.feature.agent.data.local.dao.RoleDao
 import com.aiverse.feature.agent.data.repository.FavoriteRepository
+import com.aiverse.feature.agent.domain.mcp.McpManager
 import com.aiverse.feature.agent.domain.mention.FileMentionRepository
 import com.aiverse.feature.agent.domain.session.SessionUseCase
+import com.aiverse.feature.agent.presentation.run.AgentRunManager
 import com.aiverse.feature.settings.domain.repository.AIProviderRepository
+import com.aiverse.feature.settings.data.repository.InputBarSettingsRepository
 import com.aiverse.feature.web.data.WebServerSettingsRepository
+import com.aiverse.feature.web.routes.authRoutes
 import com.aiverse.feature.web.routes.fileRoutes
 import com.aiverse.feature.web.routes.favoriteRoutes
+import com.aiverse.feature.web.routes.mcpRoutes
 import com.aiverse.feature.web.routes.modelRoutes
+import com.aiverse.feature.web.routes.roleRoutes
 import com.aiverse.feature.web.routes.sessionManageRoutes
 import com.aiverse.feature.web.routes.sessionRoutes
+import com.aiverse.feature.web.routes.settingsRoutes
+import com.aiverse.feature.web.routes.streamingRoutes
 import com.aiverse.feature.workspace.data.repository.WorkspaceRepository
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
@@ -57,7 +66,7 @@ data class WebServerState(
 /**
  * 网页端服务器：Ktor CIO，端口与监听范围由 [WebServerSettingsRepository] 配置（默认 7676、0.0.0.0）。
  * 托管 web-ui 静态资源（classpath "static"）与 REST API。启动/停止由设置页控制（App 启动不自动拉起）。
- * 身份验证（JWT）默认关闭，仅存储设置，实际鉴权后续接入。
+ * 身份验证（JWT）默认关闭；开启后由 [createWebAuthPlugin] 对 /api/ 校验 Bearer token（登录接口签发）。
  */
 @Singleton
 class WebServerManager @Inject constructor(
@@ -69,7 +78,12 @@ class WebServerManager @Inject constructor(
     private val sessionUseCase: SessionUseCase,
     private val providerRepository: AIProviderRepository,
     private val fileMentionRepository: FileMentionRepository,
-    private val workspaceRepository: WorkspaceRepository
+    private val workspaceRepository: WorkspaceRepository,
+    private val agentRunManager: AgentRunManager,
+    private val mcpManager: McpManager,
+    private val roleDao: RoleDao,
+    private val inputBarSettingsRepository: InputBarSettingsRepository,
+    private val authManager: WebAuthManager
 ) {
     companion object {
         private const val TAG = "WebServerManager"
@@ -119,6 +133,8 @@ class WebServerManager @Inject constructor(
                         }
                         install(SSE)
                         install(DefaultHeaders)
+                        // 鉴权：仅 jwtEnabled=true 时对 /api/*（除登录）校验 Bearer token；静态资源放行。
+                        install(createWebAuthPlugin(settingsRepository, authManager))
                         install(ContentNegotiation) {
                             json(Json { ignoreUnknownKeys = true; encodeDefaults = true })
                         }
@@ -128,8 +144,13 @@ class WebServerManager @Inject constructor(
                                 enableAutoHeadResponse()
                                 singlePageApplication()
                             }
+                            authRoutes(authManager, settingsRepository)
                             sessionRoutes(sessionDao, messageDao, messageBridge)
-                            sessionManageRoutes(sessionUseCase)
+                            sessionManageRoutes(sessionUseCase, workspaceRepository, roleDao)
+                            streamingRoutes(agentRunManager)
+                            roleRoutes(roleDao)
+                            mcpRoutes(mcpManager)
+                            settingsRoutes(inputBarSettingsRepository)
                             favoriteRoutes(favoriteRepository)
                             modelRoutes(providerRepository)
                             fileRoutes(fileMentionRepository, workspaceRepository)
