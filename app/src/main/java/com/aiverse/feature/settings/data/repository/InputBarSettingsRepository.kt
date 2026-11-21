@@ -56,14 +56,14 @@ data class InputBarPrefs(
     val showModel: Boolean = true,
     val showWebSearch: Boolean = false,
     val showOptimize: Boolean = false,
-    val showPlus: Boolean = false
+    val showPlus: Boolean = true
 )
 
 /**
  * 输入框快捷栏的按钮显示偏好：哪些快捷功能在输入框上方显示。
  *
  * 模式切换是必留项，不在此存储；这里只存可开关项。
- * 默认仅开启文件夹（工作区）、模型切换、思考强度三项，其余（MCP、输入优化、加号、联网搜索）默认关闭；用户可在设置里自行开关。
+ * 默认开启文件夹（工作区）、模型切换、思考强度、加号（附件）四项，其余（MCP、输入优化、联网搜索）默认关闭；用户可在设置里自行开关。
  *
  * 单一真源：[inputBarPrefs] StateFlow；设置页与对话页订阅同一流，改动即时同步。
  */
@@ -85,7 +85,7 @@ class InputBarSettingsRepository @Inject constructor(
         showModel = prefs.getBoolean(KEY_SHOW_MODEL, true),
         showWebSearch = prefs.getBoolean(KEY_SHOW_WEB_SEARCH, false),
         showOptimize = prefs.getBoolean(KEY_SHOW_OPTIMIZE, false),
-        showPlus = prefs.getBoolean(KEY_SHOW_PLUS, false)
+        showPlus = prefs.getBoolean(KEY_SHOW_PLUS, true)
     )
 
     /** 当前快照。 */

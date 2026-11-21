@@ -189,7 +189,7 @@ data class InputBarPrefsDto(
     val showModel: Boolean = true,
     val showWebSearch: Boolean = false,
     val showOptimize: Boolean = false,
-    val showPlus: Boolean = false,
+    val showPlus: Boolean = true,
     val webSearchEnabled: Boolean = true
 )
 
