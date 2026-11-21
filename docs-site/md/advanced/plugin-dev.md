@@ -337,6 +337,8 @@ demo-kit/
 
 `settings.*` 槽位只接受页面入口；`files.tree.menu` 与 `editor.selection.menu` 是动作型槽位，只接受 `handler`；`backup.data` 只接受数据选项（只写 `id` / `title` / `icon`，不能写 `page` / `handler` / `confirm`）。入口排序由宿主决定，插件不能指定插入位置。
 
+**宿主渲染范围**：当前已渲染 `settings.general` / `settings.ai` / `settings.environment` / `settings.permissions` / `settings.data` / `settings.help`，以及聊天页的 `chat.header.menu`（顶栏「更多」菜单底部）和 `chat.welcome`（空态建议区）。`drawer.footer`、`chat.session.menu`、`files.tree.menu`、`editor.selection.menu`、`backup.data` 已在清单中解析并通过安装校验，但宿主尚未渲染入口；这些槽位暂不会出现在界面上，后续版本再接入。
+
 ### hooks
 
 ```json

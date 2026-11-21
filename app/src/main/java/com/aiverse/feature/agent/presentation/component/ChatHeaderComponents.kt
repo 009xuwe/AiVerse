@@ -39,6 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -89,6 +90,10 @@ import com.aiverse.core.theme.Spacing
 import com.aiverse.core.theme.semanticColors
 import com.aiverse.feature.agent.domain.model.AgentMode
 import com.aiverse.feature.agent.domain.model.Role
+import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.plugins.domain.newmodel.PluginUiEntry
+import com.aiverse.feature.plugins.presentation.PluginChatHeaderMenuItems
+import com.aiverse.feature.plugins.presentation.PluginChatWelcomeEntries
 import com.aiverse.feature.onboarding.domain.OnboardingStep
 import com.aiverse.feature.onboarding.presentation.onboardingTarget
 import com.aiverse.feature.settings.domain.model.WelcomeEntry
@@ -160,7 +165,12 @@ internal fun ChatHeader(
     /** 当前会话绑定角色（已解析；null 表示默认角色未解析，显示默认名）。 */
     currentRole: Role? = null,
     /** 点击角色入口：打开角色切换抽屉。 */
-    onOpenRoleSwitcher: () -> Unit = {}
+    onOpenRoleSwitcher: () -> Unit = {},
+    /** 顶栏「···」菜单里的插件槽位入口。 */
+    pluginHeaderEntries: List<PluginUiEntry> = emptyList(),
+    pluginLanguageTag: String = "",
+    onOpenPluginPage: (PluginPage) -> Unit = {},
+    onRunPluginAction: (PluginUiEntry) -> Unit = {}
 ) {
     Surface(
         color = glassOr(MaterialTheme.semanticColors.surfaceGlass, MaterialTheme.colorScheme.background),
@@ -308,7 +318,11 @@ internal fun ChatHeader(
                     onNewChat = onNewChat,
                     onNavigateToGit = onNavigateToGit,
                     onNavigateToTerminal = onNavigateToTerminal,
-                    onOpenMessageTimeline = onOpenMessageTimeline
+                    onOpenMessageTimeline = onOpenMessageTimeline,
+                    pluginEntries = pluginHeaderEntries,
+                    pluginLanguageTag = pluginLanguageTag,
+                    onOpenPluginPage = onOpenPluginPage,
+                    onRunPluginAction = onRunPluginAction
                 )
             }
             // 远程模式：左边 SSH 连接状态，右边 token 累计统计
@@ -447,7 +461,11 @@ private fun HeaderOverflowMenu(
     onNewChat: () -> Unit,
     onNavigateToGit: () -> Unit,
     onNavigateToTerminal: () -> Unit,
-    onOpenMessageTimeline: () -> Unit = {}
+    onOpenMessageTimeline: () -> Unit = {},
+    pluginEntries: List<PluginUiEntry> = emptyList(),
+    pluginLanguageTag: String = "",
+    onOpenPluginPage: (PluginPage) -> Unit = {},
+    onRunPluginAction: (PluginUiEntry) -> Unit = {}
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Box {
@@ -520,6 +538,16 @@ private fun HeaderOverflowMenu(
                     onNavigateToTerminal()
                 }
             )
+            if (pluginEntries.isNotEmpty()) {
+                HorizontalDivider()
+                PluginChatHeaderMenuItems(
+                    entries = pluginEntries,
+                    languageTag = pluginLanguageTag,
+                    onOpenPage = onOpenPluginPage,
+                    onRunAction = onRunPluginAction,
+                    onDismiss = { menuExpanded = false }
+                )
+            }
         }
     }
 }
@@ -814,7 +842,11 @@ internal fun WelcomeState(
     onNavigateToGit: () -> Unit = {},
     onNavigateToBrowser: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
-    onFillPrompt: (String) -> Unit = {}
+    onFillPrompt: (String) -> Unit = {},
+    pluginEntries: List<PluginUiEntry> = emptyList(),
+    pluginLanguageTag: String = "",
+    onOpenPluginPage: (PluginPage) -> Unit = {},
+    onRunPluginAction: (PluginUiEntry) -> Unit = {}
 ) {
     val enabledEntries = remember(welcomeEntries) { welcomeEntries.filter { it.enabled } }
     // 按当前时间显示的问候 + 熬夜提醒；每分钟刷新，跨时段自动切换。
@@ -922,6 +954,16 @@ internal fun WelcomeState(
                     }
                 }
             }
+            }
+            if (pluginEntries.isNotEmpty()) {
+                Spacer(Modifier.height(Spacing.lg))
+                PluginChatWelcomeEntries(
+                    entries = pluginEntries,
+                    languageTag = pluginLanguageTag,
+                    onOpenPage = onOpenPluginPage,
+                    onRunAction = onRunPluginAction,
+                    modifier = Modifier.widthIn(max = 480.dp)
+                )
             }
         }
     }

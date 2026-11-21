@@ -236,6 +236,7 @@ body{line-height:1.65}
 <tr><td><code>backup.data</code></td><td>设置「数据与诊断」的备份数据组（<strong>只接受动作入口</strong>，不能有 page）</td></tr>
 </tbody></table>
 <div class="custom-block warning"><p class="custom-block-title">注意</p><p>每条必须同时有 <code>id</code>、<code>title</code>、<code>slot</code>；<code>page</code> 与 <code>handler</code> 只能二选一（有 <code>page</code> 的是页面型，只有 <code>handler</code> 的是动作型）；每个插件最多 <strong>2 条</strong> <code>uiEntries</code>；条目里出现未知字段会报 <code>UNSUPPORTED_FIELD</code>，同样导致清单无效；动作型入口执行前若 <code>confirm: true</code>，宿主先弹确认框。</p></div>
+<p><strong>宿主渲染范围</strong>：当前已渲染 <code>settings.general</code> / <code>settings.ai</code> / <code>settings.environment</code> / <code>settings.permissions</code> / <code>settings.data</code> / <code>settings.help</code>，以及聊天页的 <code>chat.header.menu</code>（顶栏「更多」菜单底部）和 <code>chat.welcome</code>（空态建议区）。<code>drawer.footer</code>、<code>chat.session.menu</code>、<code>files.tree.menu</code>、<code>editor.selection.menu</code>、<code>backup.data</code> 已解析并通过安装校验，但宿主尚未渲染入口，暂不会出现在界面上。</p>
 <h3 id="runtime-独立进程" tabindex="-1">runtime —— 独立进程 <a class="header-anchor" href="#runtime-独立进程" aria-label="Permalink to &quot;runtime —— 独立进程&quot;">​</a></h3>
 <pre><code class="language-json">"runtime": {
   "type": "javascript",
@@ -585,7 +586,7 @@ document.addEventListener('keydown',function(e){
 })();
 </script><script>
 (function(){
-  function goSearch(e){e.preventDefault();window.location.href='/search.html';}
+  function goSearch(e){e.preventDefault();window.location.href='/search.php';}
   document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.VPLocalSearch .button, .v-search-btn, .DocSearch-Button').forEach(function(b){b.addEventListener('click',goSearch);});
   });

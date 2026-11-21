@@ -94,6 +94,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -149,6 +151,16 @@ import com.aiverse.feature.onboarding.domain.OnboardingStep
 import com.aiverse.feature.onboarding.presentation.onboardingTarget
 import com.aiverse.feature.settings.presentation.SettingsViewModel
 import com.aiverse.feature.settings.domain.model.DashboardContext
+import com.aiverse.feature.plugins.domain.PluginUiSlots
+import com.aiverse.feature.plugins.domain.newmodel.PluginPage
+import com.aiverse.feature.plugins.domain.newmodel.PluginUiEntry
+import com.aiverse.feature.plugins.presentation.PluginActionConfirmDialog
+import com.aiverse.feature.plugins.presentation.PluginChatPageHost
+import com.aiverse.feature.plugins.presentation.PluginEntryContext
+import com.aiverse.feature.plugins.presentation.PluginTipBanner
+import com.aiverse.feature.plugins.presentation.PluginsViewModel
+import com.aiverse.feature.plugins.presentation.chatSlotEntries
+import com.aiverse.feature.plugins.presentation.currentLanguageTag
 import com.aiverse.feature.settings.domain.model.ProviderDashboardState
 import com.aiverse.feature.settings.domain.model.modelMetadataKey
 import com.aiverse.feature.workspace.domain.WorkspacePathMapper
@@ -1001,6 +1013,60 @@ fun AIChatPanel(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    // 聊天页插件槽位：顶栏「···」菜单与空态建议区；提示条在输入框上方单独挂载。
+    val pluginsViewModel: PluginsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val installedPlugins by pluginsViewModel.plugins.collectAsStateWithLifecycle()
+    val pluginLanguageTag = currentLanguageTag()
+    val headerPluginEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.CHAT_HEADER_MENU)
+    }
+    val welcomePluginEntries = remember(installedPlugins) {
+        chatSlotEntries(installedPlugins, PluginUiSlots.CHAT_WELCOME)
+    }
+    var activePluginPage by remember { mutableStateOf<PluginPage?>(null) }
+    var pendingPluginAction by remember { mutableStateOf<PluginUiEntry?>(null) }
+    val openPluginPage: (PluginPage) -> Unit = { activePluginPage = it }
+    val executePluginAction: (PluginUiEntry) -> Unit = { entry ->
+        pluginsViewModel.runUiAction(
+            entry = entry,
+            entryContext = PluginEntryContext(sessionId = currentSessionId),
+            onMessage = { message ->
+                if (!message.isNullOrBlank()) {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+    val runPluginAction: (PluginUiEntry) -> Unit = { entry ->
+        if (entry.confirm) pendingPluginAction = entry else executePluginAction(entry)
+    }
+
+    activePluginPage?.let { page ->
+        Dialog(
+            onDismissRequest = { activePluginPage = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            PluginChatPageHost(
+                page = page,
+                pluginsViewModel = pluginsViewModel,
+                sessionId = currentSessionId,
+                onClose = { activePluginPage = null },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+    pendingPluginAction?.let { entry ->
+        PluginActionConfirmDialog(
+            entry = entry,
+            languageTag = pluginLanguageTag,
+            onConfirm = {
+                pendingPluginAction = null
+                executePluginAction(entry)
+            },
+            onDismiss = { pendingPluginAction = null }
+        )
+    }
 
     // 回滚代码时若有文件因「快照后被改过」被跳过，必须告知用户——静默跳过等于把数据丢失
     // 换成了无声的失败。展示后立即清空状态，避免重组时重复弹。
@@ -1984,7 +2050,11 @@ fun AIChatPanel(
                 onCompactContext = { viewModel.compactCurrentSession() },
                 onOpenMessageTimeline = { showMessageTimeline = true },
                 currentRole = currentRole,
-                onOpenRoleSwitcher = { showRoleSwitcher = true }
+                onOpenRoleSwitcher = { showRoleSwitcher = true },
+                pluginHeaderEntries = headerPluginEntries,
+                pluginLanguageTag = pluginLanguageTag,
+                onOpenPluginPage = openPluginPage,
+                onRunPluginAction = runPluginAction
             )
             }
         }
@@ -2052,7 +2122,11 @@ fun AIChatPanel(
                             if (inputText.isBlank()) {
                                 viewModel.updateInputDraft(prompt)
                             }
-                        }
+                        },
+                        pluginEntries = welcomePluginEntries,
+                        pluginLanguageTag = pluginLanguageTag,
+                        onOpenPluginPage = openPluginPage,
+                        onRunPluginAction = runPluginAction
                     )
                 } else {
                     val t = LocalUIDensityTokens.current
